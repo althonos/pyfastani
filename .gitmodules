@@ -1,0 +1,3 @@
+[submodule "vendor/FastANI"]
+	path = vendor/FastANI
+	url = https://github.com/ParBLiSS/FastANI
