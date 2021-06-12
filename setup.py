@@ -95,8 +95,14 @@ class publicize_headers(_build_ext):
         with open(old_path, "r") as src:
             source = src.read()
 
+        # make everything public!
         source = re.sub("private:", "public:", source)
+        # patch some classes with private members at the
+        # beginning of their declaration (skch::Sketch)
         source = re.sub(r"class (.+\s*)\{(\s*)", r"class \1 {\npublic:\n\2", source)
+        # patch the contructors of skch::Map and skch::Seq so that they don't
+        # do anything
+        source = re.sub(r"(Sketch|Map)\(([^)]*)\)([^}]+)\{[^}]*}", r"\1(\2)\3 {}", source)
 
         with open(new_path, "w") as dst:
             dst.write(source)
