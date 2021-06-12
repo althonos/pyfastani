@@ -43,7 +43,7 @@ cdef extern from "map/include/base_types.hpp" namespace "skch" nogil:
     cdef cppclass QueryMetaData[ K, MV ]:
         K       kseq
         seqno_t seqCounter
-        int     sketchsize
+        int     sketchSize
         MV      minimizerTableQuery
 
 

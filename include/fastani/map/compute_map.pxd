@@ -1,6 +1,7 @@
 from libc.stdint cimport uint64_t
 from libcpp.vector cimport vector
 from libcpp.functional cimport function
+from libcpp11.fstream cimport ofstream
 
 from fastani.map.base_types cimport seqno_t, offset_t, ContigInfo, MappingResult, MappingResultsVector_t
 from fastani.map.map_parameters cimport Parameters
@@ -12,12 +13,12 @@ cdef extern from "map/include/computeMap.hpp" namespace "skch" nogil:
 
     cdef cppclass Map:
 
-        cppclass L1_candidateLocus_t:
+        struct L1_candidateLocus_t:
             seqno_t  seqId
             offset_t rangeStartPos
             offset_t rangeEndPos
 
-        cppclass L2_mapLocus_t:
+        struct L2_mapLocus_t:
             seqno_t         seqId
             offset_t        meanOptimalPos
             Sketch.MIIter_t optimalStart
@@ -37,10 +38,4 @@ cdef extern from "map/include/computeMap.hpp" namespace "skch" nogil:
             function[void(MappingResult&)] f = nullptr
         )
 
-        Map(
-            const Parameters &p,
-            const Sketch &refsketch,
-            uint64_t &totalQueryFragments,
-            int queryno,
-            MappingResultsVector_t &r
-        )
+        void mapSingleQuerySeq[Q](Q&, MappingResultsVector_t&, ofstream&)

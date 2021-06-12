@@ -7,6 +7,5 @@ cdef extern from "common/kseq.h":
         size_t m
         char*  s
 
-    ctypedef __kseq_t kseq_t
-    cdef struct __kseq_t:
+    cdef cppclass kseq_t:
         kstring_t seq
