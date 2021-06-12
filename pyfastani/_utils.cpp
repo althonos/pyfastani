@@ -18,7 +18,7 @@ skch::Map* new_map_with_result_vector(
 }
 
 int omp_get_thread_num(void) {
-    return 0;
+    return 1; // Make the logger shut up.
 }
 
 int omp_get_num_threads(void) {
