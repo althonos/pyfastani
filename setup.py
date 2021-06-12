@@ -93,9 +93,13 @@ class publicize_headers(_build_ext):
     def patch_header(self, old_path, new_path):
         self.mkpath(os.path.dirname(new_path))
         with open(old_path, "r") as src:
-            with open(new_path, "w") as dst:
-                for line in src:
-                    dst.write( line.replace("private:", "public:") )
+            source = src.read()
+
+        source = re.sub("private:", "public:", source)
+        source = re.sub(r"class (.+\s*)\{(\s*)", r"class \1 {\npublic:\n\2", source)
+
+        with open(new_path, "w") as dst:
+            dst.write(source)
 
 
 class build_ext(_build_ext):
@@ -121,7 +125,7 @@ class build_ext(_build_ext):
 
         # use debug directives with Cython if building in debug mode
         cython_args = {"include_path": ["include", "pyfastani"], "compiler_directives": {}}
-        cython_args["compile_time_env"] = {"SYS_IMPLEMENTATION": SYS_IMPLEMENTATION}
+        cython_args["compile_time_env"] = {"FASTANI_PRIVATE_ACCESS": 1}
         if self.force:
             cython_args["force"] = True
         if self.debug:
