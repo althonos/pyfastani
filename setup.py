@@ -57,6 +57,47 @@ class sdist(_sdist):
         _sdist.run(self)
 
 
+class publicize_headers(_build_ext):
+    """A custom command to make everything in C++ headers public.
+    """
+
+    user_options = _build_ext.user_options + [
+        ("sources=", "s", "the folder with the source headers to patch")
+    ]
+
+    def initialize_options(self):
+        _build_ext.initialize_options(self)
+        self.sources = None
+
+    def finalize_options(self):
+        _build_ext.finalize_options(self)
+        if self.sources is not None:
+            self.sources = _split_multiline(self.sources)
+
+    def run(self):
+        # patch sources
+        for source_dir in self.sources:
+            for dirpath, dirnames, filenames in os.walk(source_dir):
+                base_dirpath = os.path.relpath(dirpath, start=source_dir)
+                new_dirpath = os.path.join( self.build_temp, base_dirpath )
+                for filename in filenames:
+                    if filename.endswith((".h", ".hpp")):
+                        filepath = os.path.join(dirpath, filename)
+                        new_filepath = os.path.join( new_dirpath, filename )
+                        self.make_file([filepath], new_filepath, self.patch_header, (filepath, new_filepath))
+
+        # update the include dirs
+        for ext in self.extensions:
+            ext.include_dirs.append(self.build_temp)
+
+    def patch_header(self, old_path, new_path):
+        self.mkpath(os.path.dirname(new_path))
+        with open(old_path, "r") as src:
+            with open(new_path, "w") as dst:
+                for line in src:
+                    dst.write( line.replace("private:", "public:") )
+
+
 class build_ext(_build_ext):
     """A `build_ext` that disables optimizations if compiled in debug mode.
     """
@@ -68,6 +109,12 @@ class build_ext(_build_ext):
         self._clib_cmd.debug = self.debug
 
     def run(self):
+        # make sure sources have been patched to expose private fields
+        if not self.distribution.have_run.get("publicize_headers", False):
+            pub_cmd = self.get_finalized_command("publicize_headers")
+            pub_cmd.force = self.force
+            pub_cmd.run()
+
         # check `cythonize` is available
         if isinstance(cythonize, ImportError):
             raise RuntimeError("Cython is required to run `build_ext` command") from cythonize
@@ -96,14 +143,6 @@ class build_ext(_build_ext):
         self.extensions = cythonize(self.extensions, **cython_args)
         for ext in self.extensions:
             ext._needs_stub = False
-
-        # # update the compiler include and link dirs to use the
-        # # temporary build folder so that the platform-specific headers
-        # # and static libs can be found
-
-        # check the libraries have been built already
-        if not self.distribution.have_run["build_clib"]:
-            self._clib_cmd.run()
 
         # build the extensions as normal
         _build_ext.run(self)
@@ -150,10 +189,10 @@ class clean(_clean):
 extensions = [
     Extension(
         "pyfastani._fastani",
-        [os.path.join("pyfastani", "_utils.cpp"), os.path.join("pyfastani", "_fastani.pyx")],
+        [os.path.join("pyfastani", x) for x in ("_utils.cpp", "_fastani.pyx")],
         language="c++",
         libraries=["gsl", "gslcblas", "stdc++", "z", "m"],
-        include_dirs=["include", "pyfastani", os.path.join("vendor", "FastANI", "src")],
+        include_dirs=["include", "pyfastani"],
         extra_compile_args=["-std=c++11"],
         extra_link_args=["-std=c++11"],
     )
@@ -163,9 +202,9 @@ extensions = [
 
 setuptools.setup(
     ext_modules=extensions,
-    # libraries=libraries,
     cmdclass=dict(
         build_ext=build_ext,
+        publicize_headers=publicize_headers,
         clean=clean,
         sdist=sdist,
     ),
