@@ -8,12 +8,16 @@ from . import minifasta
 PROJECT_PATH = os.path.realpath(os.path.join(__file__, "..", "..", ".."))
 FASTANI_PATH = os.path.join(PROJECT_PATH, "vendor", "FastANI")
 
+ECOLI = os.path.join(FASTANI_PATH, "data", "Escherichia_coli_str_K12_MG1655.fna")
+SFLEXNERI = os.path.join(FASTANI_PATH, "data", "Shigella_flexneri_2a_01.fna")
 
 class _TestMapper(object):
 
     def _load_fasta():
         pass
 
+    @unittest.skipUnless(os.path.exists(ECOLI), "missing required data files")
+    @unittest.skipUnless(os.path.exists(SFLEXNERI), "missing required data files")
     def test_fastani_example(self):
         # The example in the FastANI README is the following
         # $ ./fastANI -q data/Shigella_flexneri_2a_01.fna -r data/Escherichia_coli_str_K12_MG1655.fna
@@ -21,11 +25,11 @@ class _TestMapper(object):
 
         mapper = pyfastani.Mapper()
 
-        ref = self._load_fasta(os.path.join(FASTANI_PATH, "data", "Escherichia_coli_str_K12_MG1655.fna"))
+        ref = self._load_fasta(ECOLI)
         mapper.add_genome("Escherichia_coli_str_K12_MG1655", self._get_sequence(ref[0]))
         mapper.index()
 
-        contigs = self._load_fasta(os.path.join(FASTANI_PATH, "data", "Shigella_flexneri_2a_01.fna"))
+        contigs = self._load_fasta(SFLEXNERI)
         hits = mapper.query_draft(map(self._get_sequence, contigs))
 
         self.assertEqual(len(hits), 1)
@@ -34,6 +38,8 @@ class _TestMapper(object):
         self.assertEqual(hits[0].fragments, 1608)
         self.assertAlmostEqual(hits[0].identity, 97.7507, places=4)
 
+    @unittest.skipUnless(os.path.exists(ECOLI), "missing required data files")
+    @unittest.skipUnless(os.path.exists(SFLEXNERI), "missing required data files")
     def test_fastani_example_reversed(self):
         # Same as the FastANI README example, but swapping query and reference
         # $ ./fastANI -r data/Shigella_flexneri_2a_01.fna -q data/Escherichia_coli_str_K12_MG1655.fna -o fastani.txt
@@ -42,11 +48,11 @@ class _TestMapper(object):
 
         mapper = pyfastani.Mapper()
 
-        contigs = self._load_fasta(os.path.join(FASTANI_PATH, "data", "Shigella_flexneri_2a_01.fna"))
+        contigs = self._load_fasta(SFLEXNERI)
         mapper.add_draft("Shigella_flexneri_2a_01", map(self._get_sequence, contigs))
         mapper.index()
 
-        query = self._load_fasta(os.path.join(FASTANI_PATH, "data", "Escherichia_coli_str_K12_MG1655.fna"))
+        query = self._load_fasta(ECOLI)
         hits = mapper.query_genome(self._get_sequence(query[0]))
 
         self.assertEqual(len(hits), 1)
