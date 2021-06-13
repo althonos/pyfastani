@@ -163,21 +163,40 @@ cdef class Mapper:
             for contig_info in self._sk.metadata
         ]
 
-    # --- Methods ------------------------------------------------------------
+    # --- Methods (adding references) ----------------------------------------
 
-    cdef int _add_sequence(self, bytes name, const unsigned char[::1] seq) except +:
+    cdef int _add_genome(self, bytes name, object sequence) except +:
+        """Add a complete genome to the sketcher.
+
+        Adapted from the ``skch::Sketch::build`` method in ``winSketch.hpp``
+        to work without the ``kseq`` I/O.
+
+        """
         assert self._sk != NULL
-        assert self.parameters is not None
 
-        cdef kseq_t        kseq
-        cdef ContigInfo_t  info
-        cdef size_t        seql  = len(seq)
-        cdef Parameters_t* param = &self._param
+        cdef kseq_t                   kseq
+        cdef ContigInfo_t             info
+        cdef size_t                   genl
+        cdef size_t                   seql  = len(sequence)
+        cdef Parameters_t*            param = &self._param
+        cdef const unsigned char[::1] seq
 
         # store the sequence name and size
         info.name = string(name)
         info.len = seql
         self._sk.metadata.push_back(info)
+
+        # make sure the sequence is uppercase, otherwise a `makeUpperCase`
+        # is going to write in our read-only buffer in `addMinimizers`
+        if not sequence.isupper():
+            warnings.warn(
+                UserWarning,
+                "Sequence contains lowercase characters, reallocating."
+            )
+            sequence = sequence.upper()
+
+        # get a memory view of the sequence
+        seq = sequence
 
         # check the sequence is large enough to compute minimizers
         if seql >= param.windowSize and seql >= param.kmerSize:
@@ -189,55 +208,140 @@ cdef class Mapper:
             kseq.seq.l = kseq.seq.m = seql
             kseq.seq.s = <char*> <const unsigned char*> &seq[0]
             # compute the minimizers
-            addMinimizers(
-                self._sk.minimizerIndex,
-                &kseq,
-                param.kmerSize,
-                param.windowSize,
-                param.alphabetSize,
-                self._counter
-            );
+            with nogil:
+                addMinimizers(
+                    self._sk.minimizerIndex,
+                    &kseq,
+                    param.kmerSize,
+                    param.windowSize,
+                    param.alphabetSize,
+                    self._counter
+                )
+            # the Sketch will need to be reindexed since we added a new sequence
+            self._indexed = False
+        else:
+            warnings.warn(UserWarning, (
+                "Sketch received a short sequence relative to parameters, "
+                "minimizers will not be added."
+            ))
 
-        # record the reference sequence name and length
+        # record the reference sequence name
         self._param.refSequences.push_back(<string> name)
-        self._lengths.push_back(seql)
+        # record the genome length with respect to the fragment length
+        self._lengths.push_back((seql // param.minReadLength) * param.minReadLength)
 
         # this genome only contained a single sequence
+        self._counter += 1
         self._sk.sequencesByFileInfo.push_back(self._counter)
 
-        # the Sketch will need to be reindexed since we added a new sequence
-        self._indexed = False
-        self._counter += 1
+    def add_genome(self, str name, str sequence):
+        """Add a reference genome to the sketcher.
 
-    def add_sequence(self, str name, str sequence):
-        """Add a sequence to the sketcher.
-
-        The sequence will be considered like a complete genome. If
-        you would like to create a reference genome from several
-        contigs instead, use the `Sketch.add_fragments` method.
+        The sequence will be considered like a complete genome. If you would
+        like to create a reference from a draft genome (containing one or
+        more contigs), use the `Mapper.add_draft` method.
 
         Arguments:
-            name (`str`): The name of the sequence to add.
-            sequence (`bytes`): The sequence to add.
+            name (`str`): The name of the genome to add.
+            sequence (`str` or `bytes`): The sequence of the genome.
 
         Warnings:
             `UserWarning`: When the sequence is too short for minimizers
                 to be computed for it.
 
         """
-        assert self.parameters is not None
+        # check if bytes
+        if isinstance(sequence, str):
+            sequence = sequence.encode("ascii")
+        # delegate to the C code
+        self._add_genome(name.encode("utf-8"), sequence)
 
-        cdef Parameters_t* p = &self._param
-        if len(sequence) < p.windowSize or len(sequence) < p.kmerSize:
-            warnings.warn(UserWarning, (
-                "Sketch received a short sequence relative to parameters, "
-                "minimizers will not be added."
-            ))
+    cdef int _add_draft(self, bytes name, object contigs) except +:
+        """Add a draft genome to the sketcher.
 
-        self._add_sequence(name.encode("utf-8"), sequence.upper().encode("utf-8"))
+        Adapted from the ``skch::Sketch::build`` method in ``winSketch.hpp``
+        to work without the ``kseq`` I/O.
 
-    def add_fragments(self, str name, object fragments):
-        raise NotImplementedError("Sketch.add_fragments")
+        """
+        assert self._sk != NULL
+
+        cdef const unsigned char[::1] seq
+        cdef kseq_t                   kseq
+        cdef ContigInfo_t             info
+        cdef size_t                   seql
+        cdef size_t                   seql_total = 0
+        cdef Parameters_t*            param      = &self._param
+
+        for contig in contigs:
+            # get the length of the contig
+            seql = len(contig)
+
+            # store the contig name and size
+            # (we just use the same name for all contigs)
+            info.name = string(name)
+            info.len = seql
+            self._sk.metadata.push_back(info)
+
+            # encode the sequence if needed
+            if isinstance(contig, str):
+                contig = contig.encode("ascii")
+
+            # make sure the sequence is uppercase, otherwise a `makeUpperCase`
+            # is going to write in our read-only buffer in `addMinimizers`
+            if not contig.isupper():
+                warnings.warn(
+                    UserWarning,
+                    "Contig contains lowercase characters, reallocating."
+                )
+                contig = contig.upper()
+
+            # get a memory view of the sequence
+            seq = contig
+
+            # check the sequence is large enough to compute minimizers
+            if seql >= param.windowSize and seql >= param.kmerSize:
+                # WARNING: Normally kseq_t owns the buffer, but here we just give
+                #          a view to avoid reallocation if possible. However,
+                #          `addMinimizers` will always attempt to make the
+                #          sequence uppercase, so it should be checked in
+                #          advance that the sequence is already uppercase.
+                kseq.seq.l = kseq.seq.m = seql
+                kseq.seq.s = <char*> <const unsigned char*> &seq[0]
+                # compute the minimizers
+                with nogil:
+                    addMinimizers(
+                        self._sk.minimizerIndex,
+                        &kseq,
+                        param.kmerSize,
+                        param.windowSize,
+                        param.alphabetSize,
+                        self._counter
+                    )
+            else:
+                warnings.warn(UserWarning, (
+                    "Sketch received a short sequence relative to parameters, "
+                    "minimizers will not be added."
+                ))
+
+            # compute the genome length with respect to the fragment length
+            seql_total += (seql // param.minReadLength) * param.minReadLength
+
+            # the Sketch will need to be reindexed since we added a new sequence
+            self._counter += 1
+            self._indexed = False
+
+        # record the reference genome name and total length
+        self._param.refSequences.push_back(<string> name)
+        self._lengths.push_back(seql_total)
+
+        # record the number of contigs in this genome
+        self._sk.sequencesByFileInfo.push_back(self._counter)
+
+    def add_draft(self, str name, object contigs):
+        # delegate to the C code
+        self._add_draft(name.encode("utf-8"), contigs)
+
+    # --- Methods (querying) -------------------------------------------------
 
     def index(self):
         """Build the index for fast lookups using minimizer table.
@@ -254,9 +358,11 @@ cdef class Mapper:
             self._indexed = True
 
     def is_indexed(self):
-        """Check whether or not this `Sketch` object has been indexed.
+        """Check whether or not this `Mapper` object has been indexed.
         """
         return self._indexed
+
+    # --- Methods (querying) -------------------------------------------------
 
     cdef MappingResultsVector_t _query_fragment(self, int i, seqno_t seq_counter, const unsigned char[::1] seq, int min_read_length, Map_t* map) nogil:
 
@@ -274,7 +380,7 @@ cdef class Mapper:
 
         return l2_mappings
 
-    cdef object _query_sequence(self, const unsigned char[::1] seq):
+    cdef object _query_genome(self, object sequence):
         """Query the sketcher for the given sequence.
 
         Adapted from the ``skch::Map::mapQuery`` method in ``computeMap.hpp``.
@@ -288,23 +394,37 @@ cdef class Mapper:
         assert self._sk != NULL
         assert self.parameters is not None
 
-        cdef int                    i
-        cdef int                    fragment_count
-        cdef Map_t*                 map
-        cdef MappingResultsVector_t l2_mappings
-        cdef MappingResultsVector_t final_mappings
-        cdef vector[CGI_Results]    results
-        cdef uint64_t               seql                  = len(seq)
-        cdef uint64_t               total_query_fragments = 0
-        cdef Parameters_t           p                     = self._param
+        cdef int                      i
+        cdef int                      fragment_count
+        cdef Map_t*                   map
+        cdef MappingResultsVector_t   l2_mappings
+        cdef vector[CGI_Results]      results
+        cdef const unsigned char[::1] seq
+        cdef MappingResultsVector_t   final_mappings
+        cdef uint64_t                 seql            = len(sequence)
+        cdef uint64_t                 total_fragments = 0
+        cdef Parameters_t             p               = self._param
+        cdef list                     hits            = []
 
+        # make sure the sequence is uppercase, otherwise a `makeUpperCase`
+        # is going to write in our read-only buffer in `addMinimizers`
+        if not sequence.isupper():
+            warnings.warn(
+                UserWarning,
+                "Sequence contains lowercase characters, reallocating."
+            )
+            sequence = sequence.upper()
+
+        # get a memory view of the sequence
+        seq = sequence
+
+        # query if the sequence is large enough
         if seql >= p.windowSize and seql >= p.kmerSize and seql >= p.minReadLength:
             # create a new mapper with the given mapping result vector
-            final_mappings = MappingResultsVector_t()
-            map = new Map_t(p, self._sk[0], total_query_fragments, 0)
+            map = new Map_t(p, self._sk[0], total_fragments, 0)
             # compute the expected number of blocks
             fragment_count = seql // p.minReadLength
-            total_query_fragments = fragment_count
+            total_fragments = fragment_count
             # map the blocks
             for i in range(fragment_count):
                 l2_mappings = self._query_fragment(i, 0, seq, p.minReadLength, map)
@@ -316,33 +436,54 @@ cdef class Mapper:
                 final_mappings,
                 map[0],
                 self._sk[0],
-                total_query_fragments, # total query fragments, here equal to fragment count
+                total_fragments, # total query fragments, here equal to fragment count
                 0, # queryFileNo, only used for visualization, ignored
                 string(), # fileName, only used for reporting, ignored
                 results,
             )
             # free the map
             del map
-
-        # WIP: return a proper object here
-        for res in results:
-            min_length = min(seql, self._lengths[res.refGenomeId-1])
-            shared_length = res.countSeq * p.minReadLength
-            if shared_length >= min_length * p.minFraction:
-                print({
-                    "name": self._param.refSequences[res.refGenomeId-1].decode("utf-8"),
-                    "identity": res.identity,
-                    "matches": res.countSeq,
-                    "fragments": res.totalQueryFragments,
-                })
-
-    def query_sequence(self, str sequence):
-
-        cdef Parameters_t* p = &self._param
-        if len(sequence) < p.windowSize or len(sequence) < p.kmerSize or len(sequence) < p.minReadLength:
+        else:
             warnings.warn(UserWarning, (
-                "Sketch received a short sequence relative to parameters, "
+                "Mapper received a short sequence relative to parameters, "
                 "mapping will not be computed."
             ))
 
-        self._query_sequence(sequence.upper().encode("utf-8"))
+        # build and return the list of hits
+        for res in results:
+            assert res.refGenomeId < self._lengths.size()
+            assert res.refGenomeId < self._param.refSequences.size()
+            min_length = min(seql, self._lengths[res.refGenomeId])
+            shared_length = res.countSeq * p.minReadLength
+            if shared_length >= min_length * p.minFraction:
+                hits.append(Hit(
+                    name=self._param.refSequences[res.refGenomeId].decode("utf-8"),
+                    identity=res.identity,
+                    matches=res.countSeq,
+                    fragments=res.totalQueryFragments,
+                ))
+        return hits
+
+    def query_genome(self, object sequence):
+        """
+        """
+        # check if bytes
+        if isinstance(sequence, str):
+            sequence = sequence.encode("ascii")
+        # delegate to C code
+        return self._query_genome(sequence)
+
+
+cdef class Hit:
+    """A single hit found when querying the mapper with a genome.
+    """
+    cdef readonly str     name
+    cdef readonly seqno_t matches
+    cdef readonly seqno_t fragments
+    cdef readonly float   identity
+
+    def __cinit__(self, str name, seqno_t matches, seqno_t fragments, float identity):
+        self.name = name
+        self.matches = matches
+        self.fragments = fragments
+        self.identity = identity
