@@ -168,97 +168,6 @@ cdef class Mapper:
 
     # --- Methods (adding references) ----------------------------------------
 
-    cdef int _add_genome(self, bytes name, object sequence) except 1:
-        """Add a complete genome to the sketcher.
-
-        Adapted from the ``skch::Sketch::build`` method in ``winSketch.hpp``
-        to work without the ``kseq`` I/O.
-
-        """
-        assert self._sk != NULL
-
-        cdef kseq_t                   kseq
-        cdef ContigInfo_t             info
-        cdef size_t                   genl
-        cdef size_t                   seql  = len(sequence)
-        cdef Parameters_t*            param = &self._param
-        cdef const unsigned char[::1] seq
-
-        # store the sequence name and size
-        info.name = string(name)
-        info.len = seql
-        self._sk.metadata.push_back(info)
-
-        # make sure the sequence is uppercase, otherwise a `makeUpperCase`
-        # is going to write in our read-only buffer in `addMinimizers`
-        if not sequence.isupper():
-            warnings.warn(
-                UserWarning,
-                "Sequence contains lowercase characters, reallocating."
-            )
-            sequence = sequence.upper()
-
-        # get a memory view of the sequence
-        seq = sequence
-
-        # check the sequence is large enough to compute minimizers
-        if seql >= param.windowSize and seql >= param.kmerSize:
-            # HACK: Normally kseq_t owns the buffer, but here we just give
-            #       a view to avoid reallocation if possible. However,
-            #       `addMinimizers` will always attempt to make the sequence
-            #       uppercase by writing directly to the buffer, so we must
-            #       be absolutely sure that the sequence is already uppercase.
-            kseq.seq.l = kseq.seq.m = seql
-            kseq.seq.s = <char*> <const unsigned char*> &seq[0]
-            # compute the minimizers
-            with nogil:
-                addMinimizers(
-                    self._sk.minimizerIndex,
-                    &kseq,
-                    param.kmerSize,
-                    param.windowSize,
-                    param.alphabetSize,
-                    self._counter
-                )
-            # the Sketch will need to be reindexed since we added a new sequence
-            self._indexed = False
-        else:
-            warnings.warn(UserWarning, (
-                "Sketch received a short sequence relative to parameters, "
-                "minimizers will not be added."
-            ))
-
-        # record the reference sequence name
-        self._param.refSequences.push_back(<string> name)
-        # record the genome length with respect to the fragment length
-        self._lengths.push_back((seql // param.minReadLength) * param.minReadLength)
-
-        # this genome only contained a single sequence
-        self._counter += 1
-        self._sk.sequencesByFileInfo.push_back(self._counter)
-
-    def add_genome(self, str name, str sequence):
-        """Add a reference genome to the sketcher.
-
-        The sequence will be considered like a complete genome. If you would
-        like to create a reference from a draft genome (containing one or
-        more contigs), use the `Mapper.add_draft` method.
-
-        Arguments:
-            name (`str`): The name of the genome to add.
-            sequence (`str` or `bytes`): The sequence of the genome.
-
-        Note:
-            Sequence must be larger than the window size and the k-mer size
-            to be sketched, otherwise no minifiers will be computed.
-
-        """
-        # check if bytes
-        if isinstance(sequence, str):
-            sequence = sequence.encode("ascii")
-        # delegate to the C code
-        self._add_genome(name.encode("utf-8"), sequence)
-
     cdef int _add_draft(self, bytes name, object contigs) except 1:
         """Add a draft genome to the sketcher.
 
@@ -358,6 +267,24 @@ cdef class Mapper:
         # delegate to the C code
         self._add_draft(name.encode("utf-8"), contigs)
 
+    def add_genome(self, str name, object sequence):
+        """Add a reference genome to the sketcher.
+
+        This method is a shortcut for `Mapper.add_draft` when a genome is
+        complete (i.e. only contains a single contig).
+
+        Arguments:
+            name (`str`): The name of the genome to add.
+            sequence (`str` or `bytes`): The sequence of the genome.
+
+        Note:
+            Sequence must be larger than the window size and the k-mer size
+            to be sketched, otherwise no minifiers will be computed.
+
+        """
+        # delegate to the C code
+        self._add_draft(name.encode("utf-8"), (sequence,))
+
     # --- Methods (indexing) -------------------------------------------------
 
     def index(self):
@@ -408,7 +335,6 @@ cdef class Mapper:
         query.seqCounter = seq_counter + i
 
         map.mapSingleQuerySeq[QueryMetaData_t[kseq_ptr_t, Map_t.MinVec_Type]](query, l2_mappings[0], out)
-
 
     cdef object _query_genome(self, object sequence):
         """Query the sketcher for the given sequence.
