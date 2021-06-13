@@ -52,7 +52,7 @@ pyFastANI can be installed directly from [PyPI](https://pypi.org/project/pyfasta
 which hosts some pre-built CPython wheels for x86-64 Unix platforms, as well
 as the code required to compile from source with Cython:
 ```console
-$ pip install pyrodigal
+$ pip install pyfastani
 ```
 
 Note that in the event you compile from source, you will need to have the
@@ -72,7 +72,7 @@ affect the `name` attribute of the hits returned for a query.*
 Biopython does not let us access to the sequence directly, so we need to
 convert it to bytes first with the `bytes` builtin function. For older
 versions of Biopython (earlier than 1.79), use `record.seq.encode()`
-instead of `bytes(record.seq).`
+instead of `bytes(record.seq)`.
 
 ```python
 import pyfastani
