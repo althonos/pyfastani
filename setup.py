@@ -112,6 +112,30 @@ class build_ext(_build_ext):
     """A `build_ext` that disables optimizations if compiled in debug mode.
     """
 
+    # --- Autotools-like helpers ---
+
+    def _silent_spawn(self, cmd):
+        try:
+            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as err:
+            raise CompileError(err.stderr)
+
+    def _needs_clang_flags(self):
+        self.mkpath(self.build_temp)
+        testfile = os.path.join(self.build_temp, "testc++11.cpp")
+
+        with open(testfile, "w") as f:
+            f.write('#include <chrono>\n')
+        try:
+            with mock.patch.object(self.compiler, "spawn", new=self._silent_spawn):
+                objects = self.compiler.compile([testfile], debug=self.debug)
+        except CompileError as err:
+            log.warn('failed to include <chrono>, assuming we need clang flags')
+            return True
+        else:
+            log.info('successfully built a C++11 program with default flags')
+            return False
+
     def finalize_options(self):
         _build_ext.finalize_options(self)
         self._clib_cmd = self.get_finalized_command("build_clib")
@@ -178,6 +202,11 @@ class build_ext(_build_ext):
         else:
             ext.extra_compile_args.append("-std=c++11")
             ext.extra_link_args.append("-std=c++11")
+
+        # in case we are compiling with clang, make sure to use libstdc++
+        if self.compiler.compiler_type == "unix" and sys.platform == "darwin":
+            ext.extra_compile_args.append("-stdlib=libc++")
+            ext.extra_link_args.append("-stdlib=libc++")
 
         # build the rest of the extension as normal
         _build_ext.build_extension(self, ext)
