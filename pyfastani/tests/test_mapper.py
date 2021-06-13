@@ -57,15 +57,16 @@ class TestMapperSkbio(_TestMapper, unittest.TestCase):
         return sequence.values.view('B')
 
 try:
-    from Bio import SeqIO
+    import Bio.SeqIO
 except ImportError:
-    SeqIO = None
+    Bio = None
 
-@unittest.skipUnless(SeqIO, "Biopython is required for this test suite")
+@unittest.skipUnless(Bio, "Biopython is required for this test suite")
 class TestMapperBiopython(_TestMapper, unittest.TestCase):
 
     def _load_fasta(self, path):
-        return list(SeqIO.parse(path, "fasta"))
+        return list(Bio.SeqIO.parse(path, "fasta"))
 
-    def _get_sequence(self, sequence):
-        return sequence.seq.encode()
+    def _get_sequence(self, record):
+        version = tuple(map(int, Bio.__version__.split(".")))
+        return record.seq.encode() if version < (1, 79) else bytes(record.seq)

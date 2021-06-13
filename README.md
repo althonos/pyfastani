@@ -45,7 +45,9 @@ affect the `name` attribute of the hits returned for a query.*
 ### 🔬 [Biopython](https://github.com/biopython/biopython)
 
 Biopython does not let us access to the sequence directly, so we need to
-convert it to bytes first with the `encode` method.
+convert it to bytes first with the `bytes` builtin function. For older
+versions of Biopython (earlier than 1.79), use `record.seq.encode()`
+instead of `bytes(record.seq).`
 
 ```python
 import pyfastani
@@ -55,12 +57,12 @@ m = pyfastani.Mapper()
 
 # add a single draft genome to the mapper, and index it
 ref = list(Bio.SeqIO.parse("vendor/FastANI/data/Shigella_flexneri_2a_01.fna", "fasta"))
-m.add_draft("Shigella_flexneri_2a_01", (record.seq.encode() for record in ref))
+m.add_draft("Shigella_flexneri_2a_01", (bytes(record.seq) for record in ref))
 m.index()
 
 # read the query and query the mapper
 query = Bio.SeqIO.read("vendor/FastANI/data/Escherichia_coli_str_K12_MG1655.fna", "fasta")
-hits = m.query_sequence(query.seq.encode())
+hits = m.query_sequence(bytes(query.seq))
 
 for hit in hits:
     print("Escherichia_coli_str_K12_MG1655", hit.name, hit.identity, hit.matches, hit.fragments)
