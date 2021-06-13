@@ -2,8 +2,20 @@
 
 *[Cython](https://cython.org/) bindings and Python interface to [FastANI](https://github.com/ParBLiSS/FastANI/), a method for fast whole-genome similarity estimation.*
 
+[![Actions](https://img.shields.io/github/workflow/status/althonos/pyfastani/Test/master?logo=github&style=flat-square&maxAge=300)](https://github.com/althonos/pyfastani/actions)
+[![Coverage](https://img.shields.io/codecov/c/gh/althonos/pyfastani?style=flat-square&maxAge=3600)](https://codecov.io/gh/althonos/pyfastani/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square&maxAge=2678400)](https://choosealicense.com/licenses/mit/)
+[![PyPI](https://img.shields.io/pypi/v/pyfastani.svg?style=flat-square&maxAge=3600)](https://pypi.org/project/pyfastani)
+[![Bioconda](https://img.shields.io/conda/vn/bioconda/pyfastani?style=flat-square&maxAge=3600)](https://anaconda.org/bioconda/pyfastani)
+[![Wheel](https://img.shields.io/pypi/wheel/pyfastani.svg?style=flat-square&maxAge=3600)](https://pypi.org/project/pyfastani/#files)
+[![Python Versions](https://img.shields.io/pypi/pyversions/pyfastani.svg?style=flat-square&maxAge=600)](https://pypi.org/project/pyfastani/#files)
+[![Python Implementations](https://img.shields.io/pypi/implementation/pyfastani.svg?style=flat-square&maxAge=600&label=impl)](https://pypi.org/project/pyfastani/#files)
 [![Source](https://img.shields.io/badge/source-GitHub-303030.svg?maxAge=2678400&style=flat-square)](https://github.com/althonos/pyfastani/)
 [![GitHub issues](https://img.shields.io/github/issues/althonos/pyfastani.svg?style=flat-square&maxAge=600)](https://github.com/althonos/pyfastani/issues)
+[![Changelog](https://img.shields.io/badge/keep%20a-changelog-8A0707.svg?maxAge=2678400&style=flat-square)](https://github.com/althonos/pyfastani/blob/master/CHANGELOG.md)
+[![Downloads](https://img.shields.io/badge/dynamic/json?style=flat-square&color=303f9f&maxAge=86400&label=downloads&query=%24.total_downloads&url=https%3A%2F%2Fapi.pepy.tech%2Fapi%2Fprojects%2Fpyfastani)](https://pepy.tech/project/pyfastani)
+[![DOI](https://img.shields.io/badge/doi-10.5281%2Fzenodo.4015169-purple?style=flat-square&maxAge=86400)](https://doi.org/10.5281/zenodo.4015169)
+
 
 ## 🗺️ Overview
 
@@ -32,6 +44,19 @@ FastANI internals, which has the following advantages over CLI wrappers:
 
 *This library is still a work-in-progress, and in an experimental stage,
 but it should already pack enough features to run one-to-one computations.*
+
+
+## 🔧 Installing
+
+pyFastANI can be installed directly from [PyPI](https://pypi.org/project/pyfastani/),
+which hosts some pre-built CPython wheels for x86-64 Unix platforms, as well
+as the code required to compile from source with Cython:
+```console
+$ pip install pyrodigal
+```
+
+Note that in the event you compile from source, you will need to have the
+headers and libraries for `boost::math` available.
 
 
 ## 💡 Example
