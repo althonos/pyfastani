@@ -1,2 +1,2 @@
-biopython
+biopython   ; implementation_name == "cpython"
 scikit-bio  ; implementation_name == "cpython"

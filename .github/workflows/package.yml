@@ -72,9 +72,8 @@ jobs:
           path: dist
     - name: Install built wheel
       run: python -m pip install --no-index --find-links=dist pyfastani
-    - name: Install numpy
-      run: python -m pip install numpy
-      if: ${{ !startsWith(matrix.python-version, 'pypy') }}
+    - name: Get FastANI test files
+      run: git clone https://github.com/ParBLiSS/FastANI vendor/FastANI
     - name: Run tests without coverage
       run: python -m unittest pyfastani.tests -vv
 
@@ -136,9 +135,8 @@ jobs:
           path: dist
     - name: Install built wheel
       run: python -m pip install --no-index --find-links=dist pyfastani
-    - name: Install numpy
-      run: python -m pip install numpy
-      if: ${{ !startsWith(matrix.python-version, 'pypy') }}
+    - name: Get FastANI test files
+      run: git clone https://github.com/ParBLiSS/FastANI vendor/FastANI
     - name: Run tests without coverage
       run: python -m unittest pyfastani.tests -vv
 

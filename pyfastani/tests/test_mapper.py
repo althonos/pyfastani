@@ -3,9 +3,10 @@ import unittest
 
 import pyfastani
 
+from . import minifasta
+
 PROJECT_PATH = os.path.realpath(os.path.join(__file__, "..", "..", ".."))
 FASTANI_PATH = os.path.join(PROJECT_PATH, "vendor", "FastANI")
-
 
 
 class _TestMapper(object):
@@ -40,6 +41,15 @@ class _TestMapper(object):
         self.assertEqual(hits[0].matches, 1322)
         self.assertEqual(hits[0].fragments, 1547)
         self.assertAlmostEqual(hits[0].identity, 97.664, places=4)
+
+
+class TestMapper(_TestMapper, unittest.TestCase):
+
+    def _load_fasta(self, path):
+        return list(minifasta.parse(path))
+
+    def _get_sequence(self, record):
+        return record.seq.encode()
 
 
 try:
