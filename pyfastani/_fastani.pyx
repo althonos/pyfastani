@@ -54,6 +54,7 @@ cdef bool isupper(const unsigned char[::1] seq):
             return False
     return True
 
+
 cdef void upper(unsigned char[::1] seq):
     """Make the letters in a buffer upper case, in place.
     """
@@ -61,6 +62,7 @@ cdef void upper(unsigned char[::1] seq):
     for i in range(seq.shape[0]):
         if seq[i] >= b'a' and seq[i] <= b'z':
             seq[i] -= 32
+
 
 # --- Cython classes ---------------------------------------------------------
 
@@ -265,14 +267,16 @@ cdef class Mapper:
         self._sk.sequencesByFileInfo.push_back(self._counter)
 
     def add_draft(self, str name, object contigs):
-        """Add a reference genome to the sketcher.
+        """add_draft(name, contigs)\n--
+
+        Add a reference draft genome to the sketcher.
 
         Using this method is fine even when the genome has a single contig,
         although `Mapper.add_genome` is easier to use in that case.
 
         Arguments:
             name (`str`): The name of the genome to add.
-            sequence (`str` or `bytes`): The sequence of the genome.
+            contigs (iterable of `str` or `bytes`): The contigs of the genome.
 
         Note:
             Contigs smaller than the window size and the k-mer size will
@@ -283,7 +287,9 @@ cdef class Mapper:
         self._add_draft(name.encode("utf-8"), contigs)
 
     def add_genome(self, str name, object sequence):
-        """Add a reference genome to the sketcher.
+        """add_genome(name, sequence)\n--
+
+        Add a reference genome to the sketcher.
 
         This method is a shortcut for `Mapper.add_draft` when a genome is
         complete (i.e. only contains a single contig).
@@ -337,22 +343,19 @@ cdef class Mapper:
         const unsigned char[::1] seq,
         int min_read_length,
         Map_t* map,
-        MappingResultsVector_t* l2_mappings
+        kseq_t* kseq,
+        ofstream* out,
+        MappingResultsVector_t* mappings
     ) nogil:
-
-        cdef kseq_t                 kseq_buffer
-        cdef ofstream               out         = ofstream()
-
         cdef QueryMetaData_t[kseq_ptr_t, Map_t.MinVec_Type] query
-        query.kseq = &kseq_buffer
+        query.kseq = kseq
         query.kseq.seq.s = <char*> &seq[i * min_read_length]
         query.kseq.seq.l = query.kseq.seq.m = min_read_length
         query.seqCounter = seq_counter + i
+        map.mapSingleQuerySeq[QueryMetaData_t[kseq_ptr_t, Map_t.MinVec_Type]](query, mappings[0], out[0])
 
-        map.mapSingleQuerySeq[QueryMetaData_t[kseq_ptr_t, Map_t.MinVec_Type]](query, l2_mappings[0], out)
-
-    cdef object _query_genome(self, object sequence):
-        """Query the sketcher for the given sequence.
+    cdef object _query_draft(self, object contigs):
+        """Query the sketcher for the given contigs.
 
         Adapted from the ``skch::Map::mapQuery`` method in ``computeMap.hpp``.
 
@@ -364,67 +367,80 @@ cdef class Mapper:
         """
         assert self._sk != nullptr
 
-        cdef int                      i
-        cdef int                      fragment_count
+        cdef int                      i               # fragment counter
+        cdef kseq_t                   kseq            #
         cdef Map_t*                   map
-        cdef MappingResultsVector_t   l2_mappings
-        cdef vector[CGI_Results]      results
-        cdef const unsigned char[::1] seq
         cdef MappingResultsVector_t   final_mappings
+        cdef vector[CGI_Results]      results
+        cdef object                   contig
+        cdef const unsigned char[::1] seq
         cdef uint64_t                 seql
+        cdef int                      fragment_count  = 0
+        cdef int                      seq_counter     = 0
         cdef uint64_t                 total_fragments = 0
         cdef Parameters_t             p               = self._param
         cdef list                     hits            = []
+        cdef ofstream                 out             = ofstream()
 
-        # make sure the sequence is bytes
-        if isinstance(sequence, str):
-            sequence = sequence.encode("ascii")
-        # make sure the sequence is uppercase, otherwise a `makeUpperCase`
-        # is going to write in our read-only buffer in `addMinimizers`
-        if not isupper(sequence):
-            warnings.warn(
-                UserWarning,
-                "Sequence contains lowercase characters, reallocating."
-            )
-            sequence = bytearray(sequence)
-            upper(sequence)
+        # create a new mapper with the given mapping result vector
+        map = new Map_t(p, self._sk[0], total_fragments, 0)
 
-        # get a memory view of the sequence
-        seq = sequence
-        seql = seq.shape[0]
+        # iterate over contigs
+        for contig in contigs:
+            # make sure the sequence is bytes
+            if isinstance(contig, str):
+                contig = contig.encode("ascii")
+            # make sure the sequence is uppercase, otherwise a `makeUpperCase`
+            # is going to write in our read-only buffer in `addMinimizers`
+            if not isupper(contig):
+                warnings.warn(
+                    UserWarning,
+                    "Sequence contains lowercase characters, reallocating."
+                )
+                contig = bytearray(contig)
+                upper(contig)
+            # get a memory view of the sequence
+            seq = contig
+            seql = seq.shape[0]
 
-        # query if the sequence is large enough
-        if seql >= p.windowSize and seql >= p.kmerSize and seql >= p.minReadLength:
-            # create a new mapper with the given mapping result vector
-            map = new Map_t(p, self._sk[0], total_fragments, 0)
-            # compute the expected number of blocks
-            fragment_count = seql // p.minReadLength
-            total_fragments = fragment_count
-            # map the blocks
-            for i in range(fragment_count):
-                l2_mappings.clear()
-                self._query_fragment(i, 0, seq, p.minReadLength, map, &l2_mappings)
-                for m in l2_mappings:
-                    final_mappings.push_back(m)
-            # compute core genomic identity after successful mapping
-            computeCGI(
-                p,
-                final_mappings,
-                map[0],
-                self._sk[0],
-                total_fragments, # total query fragments, here equal to fragment count
-                0, # queryFileNo, only used for visualization, ignored
-                string(), # fileName, only used for reporting, ignored
-                results,
-            )
-            # free the map
-            del map
-        else:
-            warnings.warn(UserWarning, (
-                "Mapper received a short sequence relative to parameters, "
-                "mapping will not be computed."
-            ))
+            # query if the sequence is large enough
+            if seql >= p.windowSize and seql >= p.kmerSize and seql >= p.minReadLength:
+                # compute the expected number of blocks
+                fragment_count = seql // p.minReadLength
+                # map the blocks
+                for i in range(fragment_count):
+                    self._query_fragment(
+                        i,
+                        total_fragments,
+                        seq,
+                        p.minReadLength,
+                        map,
+                        &kseq,
+                        &out,
+                        &final_mappings
+                    )
+                # record the number of fragments
+                total_fragments += fragment_count
+            else:
+                fragmentCount = 0
+                warnings.warn(UserWarning, (
+                    "Mapper received a short sequence relative to parameters, "
+                    "mapping will not be computed."
+                ))
 
+        # compute core genomic identity after successful mapping
+        computeCGI(
+            p,
+            final_mappings,
+            map[0],
+            self._sk[0],
+            total_fragments, # total query fragments
+            0, # queryFileNo, only used for visualization, ignored
+            string(), # fileName, only used for reporting, ignored
+            results,
+        )
+        # free the map
+        del map
         # build and return the list of hits
         for res in results:
             assert res.refGenomeId < self._lengths.size()
@@ -439,6 +455,27 @@ cdef class Mapper:
                     fragments=res.totalQueryFragments,
                 ))
         return hits
+
+    def query_draft(self, object contigs):
+        """query_draft(self, contigs)\n--
+
+        Query the mapper for a complete genome.
+
+        Arguments:
+            contigs (iterable or `str` or `bytes`): The genome to query the mapper
+                with.
+
+        Note:
+            Sequence must be larger than the window size, the k-mer size,
+            and the fragment length to be mapped, otherwise an empty list
+            of hits will be returned.
+
+        Returns:
+            `list` of `~pyfastani.Hit`: The hits found for the query.
+
+        """
+        # delegate to C code
+        return self._query_draft(contigs)
 
     def query_genome(self, object sequence):
         """query_genome(self, sequence)\n--
@@ -458,10 +495,8 @@ cdef class Mapper:
             `list` of `~pyfastani.Hit`: The hits found for the query.
 
         """
-        # check if bytes
-
         # delegate to C code
-        return self._query_genome(sequence)
+        return self._query_draft((sequence,))
 
 
 cdef class Hit:

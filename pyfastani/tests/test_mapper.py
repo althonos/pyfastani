@@ -19,7 +19,20 @@ class _TestMapper(object):
         # $ ./fastANI -q data/Shigella_flexneri_2a_01.fna -r data/Escherichia_coli_str_K12_MG1655.fna
         # data/Shigella_flexneri_2a_01.fna data/Escherichia_coli_str_K12_MG1655.fna 97.7507 1303 1608
 
-        pass
+        mapper = pyfastani.Mapper()
+
+        ref = self._load_fasta(os.path.join(FASTANI_PATH, "data", "Escherichia_coli_str_K12_MG1655.fna"))
+        mapper.add_genome("Escherichia_coli_str_K12_MG1655", self._get_sequence(ref[0]))
+        mapper.index()
+
+        contigs = self._load_fasta(os.path.join(FASTANI_PATH, "data", "Shigella_flexneri_2a_01.fna"))
+        hits = mapper.query_draft(map(self._get_sequence, contigs))
+
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0].name, "Escherichia_coli_str_K12_MG1655")
+        self.assertEqual(hits[0].matches, 1303)
+        self.assertEqual(hits[0].fragments, 1608)
+        self.assertAlmostEqual(hits[0].identity, 97.7507, places=4)
 
     def test_fastani_example_reversed(self):
         # Same as the FastANI README example, but swapping query and reference
