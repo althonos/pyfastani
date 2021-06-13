@@ -13,6 +13,17 @@ wrapped code of FastANI which is exposed as a ``git`` submodule:
 $ git clone --recursive https://github.com/althonos/pyfastani
 ```
 
+## Compiling the extension
+
+Compiling requires the `boost::math` module from [Boost](https://www.boost.org/).
+Depending on your system, you may have to install them yourself.
+
+To compile the extension, use the following command:
+
+```console
+$ python setup.py build_ext
+```
+
 ## Running tests
 
 Tests are written as usual Python unit tests with the `unittest` module of
