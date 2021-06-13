@@ -6,6 +6,7 @@
 #include <limits>
 #include <iostream>
 #include <vector>
+#include <zlib.h>
 
 #include "common/kseq.h"
 #include "map/include/base_types.hpp"

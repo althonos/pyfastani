@@ -201,7 +201,7 @@ extensions = [
         "pyfastani._fastani",
         [os.path.join("pyfastani", x) for x in ("_utils.cpp", "_fastani.pyx")],
         language="c++",
-        libraries=["gsl", "gslcblas", "stdc++", "z", "m"],
+        libraries=["gsl", "gslcblas", "stdc++", "m"],
         include_dirs=["include", "pyfastani"],
         extra_compile_args=["-std=c++11"],
         extra_link_args=["-std=c++11"],
