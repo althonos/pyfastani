@@ -7,7 +7,7 @@ feedback.
 ## Setting up a local repository
 
 Make sure you clone the repository in recursive mode, so you also get the
-wrapped code of FastANI which are exposed as ``git`` submodules:
+wrapped code of FastANI which is exposed as a ``git`` submodule:
 
 ```console
 $ git clone --recursive https://github.com/althonos/pyfastani

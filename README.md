@@ -17,18 +17,16 @@ without the need for expensive alignments.
 language, that provides bindings to FastANI. It directly interacts with the
 FastANI internals, which has the following advantages over CLI wrappers:
 
+- **simpler compilation**: FastANI requires several additional libraries,
+  which make compilation of the original binary non-trivial. In pyFastANI,
+  libraries that were needed for threading or I/O are provided as stubs.
 - **single dependency**: If your software or your analysis pipeline is
   distributed as a Python package, you can add `pyfastani` as a dependency to
-  your project, and stop worrying about the FastANI binaries being properly
-  setup on the end-user machine.
-- **no intermediate files**: Everything happens in memory, in Python objects
-  you have control on, making it easier to pass your sequences to FastANI
+  your project, and stop worrying about the FastANI binary being present on
+  the end-user machine.
+- **sans I/O**: Everything happens in memory, in Python objects you control,
+  making it easier to pass your sequences to FastANI
   without needing to write them to a temporary file.
-- **no input formatting**: The memory model of FastANI can be interacted with
-  to add new sequences directly without needing to write them to dedicated
-  files. This is useful if your sequences are already loaded in memory,
-  for instance because you obtained them from another Python library (such as
-  or [Biopython](https://biopython.org/)).
 
 *This library is still a work-in-progress, and in an experimental stage,
 but it should already pack enough features to run one-to-one computations.*
@@ -116,8 +114,8 @@ This library is provided under the [MIT License](https://choosealicense.com/lice
 The FastANI code was written by [Chirag Jain](https://github.com/cjain7)
 and is distributed under the terms of the
 [Apache License 2.0](https://choosealicense.com/licenses/apache-2.0/) license,
-unless otherwise specified from vendored sources.
-See `vendor/FastANI/LICENSE` for more information.
+unless otherwise specified in vendored sources. See `vendor/FastANI/LICENSE`
+ for more information.
 
 *This project is in no way not affiliated, sponsored, or otherwise endorsed
 by the [original FastANI authors](https://github.com/cjain7). It was developed by
