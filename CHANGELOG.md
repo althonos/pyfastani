@@ -6,7 +6,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyrodigal/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/althonos/pyrodigal/compare/v0.1.1...HEAD
+
+## [v0.1.1] - 2021-06-13
+[v0.1.1]: https://github.com/althonos/pyrodigal/compare/v0.1.0...v0.1.1
+
+### Fixed
+- Source distribution missing Cython and C++ sources, thus preventing compilation.
 
 
 ## [v0.1.0] - 2021-06-13

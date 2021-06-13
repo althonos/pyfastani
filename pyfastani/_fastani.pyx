@@ -1,6 +1,7 @@
 # coding: utf-8
 # cython: language_level=3, linetrace=True, language=cpp
-
+"""Bindings to FastANI, a method for fast whole-genome similarity estimation.
+"""
 
 # --- C imports --------------------------------------------------------------
 
