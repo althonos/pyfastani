@@ -66,6 +66,7 @@ jobs:
       run: python setup.py build_ext --inplace --debug
     - name: Install numpy
       run: python -m pip install numpy
+      if: ${{ !startsWith(matrix.python-version != 'pypy' }}
     - name: Install tests requirements
       run: python -m pip install -r pyfastani/tests/requirements.txt
     - name: Test with coverage
@@ -137,6 +138,7 @@ jobs:
     - name: Build C extension
       run: python setup.py build_ext --inplace --debug
     - name: Install numpy
+      if: ${{ matrix.python-impl != 'PyPy' }}
       run: python -m pip install numpy
     - name: Install tests requirements
       run: python -m pip install -r pyfastani/tests/requirements.txt
