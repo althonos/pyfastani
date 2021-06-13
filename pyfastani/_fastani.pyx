@@ -177,7 +177,7 @@ cdef class Sketch:
         self._indexed = False
         self._counter += 1
 
-    def add_sequence(self, str name, object sequence):
+    def add_sequence(self, str name, str sequence):
         """Add a sequence to the sketcher.
 
         The sequence will be considered like a complete genome. If
@@ -202,7 +202,7 @@ cdef class Sketch:
                 "minimizers will not be added."
             ))
 
-        self._add_sequence(name.encode("utf-8").upper(), sequence)
+        self._add_sequence(name.encode("utf-8"), sequence.upper().encode("utf-8"))
 
     def add_fragments(self, str name, object fragments):
         raise NotImplementedError("Sketch.add_fragments")
@@ -304,7 +304,7 @@ cdef class Sketch:
                     "fragments": res.totalQueryFragments,
                 })
 
-    def query_sequence(self, object sequence):
+    def query_sequence(self, str sequence):
 
         cdef Parameters_t* p = &self.parameters._param
         if len(sequence) < p.windowSize or len(sequence) < p.kmerSize or len(sequence) < p.minReadLength:
@@ -313,4 +313,4 @@ cdef class Sketch:
                 "mapping will not be computed."
             ))
 
-        self._query_sequence(sequence)
+        self._query_sequence(sequence.upper().encode("utf-8"))
