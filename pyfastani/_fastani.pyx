@@ -44,30 +44,83 @@ import warnings
 
 # --- Cython classes ---------------------------------------------------------
 
-cdef class Parameters:
-    """Shared numerical parameters for `Sketch` and `Map`.
-    """
+cdef class Mapper:
 
-    # use stack allocation for the object
-    cdef Parameters_t _param
+    cdef size_t           _counter
+    cdef Sketch_t*        _sk
+    cdef bool             _indexed
+    cdef vector[uint64_t] _lengths
+    cdef Parameters_t     _param
+
+    # --- Magic methods ------------------------------------------------------
 
     def __cinit__(self):
-        self._param.kmerSize = 16
-        self._param.minReadLength = 3000
-        self._param.minFraction = 0.2
+        # hardcode reporting parameters so that we can control
+        # execution flow
         self._param.alphabetSize = 4
         self._param.threads = 1
-        self._param.p_value = 1e-03
-        self._param.percentageIdentity = 80
-        self._param.referenceSize = 5000000
-
         self._param.reportAll = True
         self._param.visualize = False
         self._param.matrixOutput = False
+        # create a new Sketch with the parameters
+        self._sk = new Sketch_t(self._param)
 
-        self._param.refSequences = vector[string]()
-        self._param.querySequences = vector[string]()
+    def __init__(
+        self,
+        *,
+        unsigned int k=16,
+        unsigned int fragment_length=3000,
+        double minimum_fraction=0.2,
+        double p_value=1e-03,
+        double percentage_identity=80.0,
+        unsigned int reference_size=5_000_000,
+    ):
+        """__init__(*, k=16, fragment_length=3000, minimum_fraction=0.2, p_value=1e-03, percentage_identity=80, reference_size=5000000)\n--
 
+        Create a new FastANI sequence mapper.
+
+        Keyword Arguments:
+            k (`int`): The size of the k-mers. FastANI authors recommend
+                a size of at most 16, but any positive number should work.
+            fragment_length (`int`): The lengths the blocks should have
+                when splitting the query. Queries smaller than this number
+                won't be processed.
+            minimum_fraction (`float`): The minimum fraction of genome that
+                must be shared for a hit to be reported. If reference and
+                query genome size differ, smaller one among the two is
+                considered.
+            p_value (`float`): The p-value cutoff. *Used to determine the
+                recommended window size.*
+            percentage_identity (`int`): An identity percentage above which
+                ANI values between two sequences can be trusted. *Used to
+                to determine the recommended window size.*
+            reference_size (`int`): An estimate of the reference length.
+                *Used to determine the recommended window size.*
+
+        """
+        if minimum_fraction > 1 or minimum_fraction < 0:
+            raise ValueError(f"minimum_fraction must be between 0 and 1, got {minimum_fraction!r}")
+        if fragment_length <= 0:
+            raise ValueError(f"fragment_length must be strictly positive, got {fragment_length!r}")
+        if p_value <= 0:
+            raise ValueError(f"p_value must be positive, got {p_value!r}")
+        if percentage_identity > 100 or percentage_identity < 0:
+            raise ValueError(f"percentage_identity must be between 0 and 100, got {percentage_identity!r}")
+        if k > 16:
+            warnings.warn(
+                UserWarning,
+                f"Using k-mer size greater than 16 ({k!r}), accuracy of the results is not guaranteed."
+            )
+
+        # store parameters
+        self._param.kmerSize = k
+        self._param.minReadLength = fragment_length
+        self._param.minFraction = minimum_fraction
+        self._param.p_value = p_value
+        self._param.percentageIdentity = percentage_identity
+        self._param.referenceSize = reference_size
+
+        # compute the recommended window size
         self._param.windowSize = fastani.map.map_stats.recommendedWindowSize(
             self._param.p_value,
             self._param.kmerSize,
@@ -77,30 +130,8 @@ cdef class Parameters:
             self._param.referenceSize
         )
 
-    def __init__(
-        self,
-        *,
-        kmer_size=None,
-        min_read_length=None,
-        minFraction=None,
-    ):
-        pass
-
-
-cdef class Sketch:
-
-    cdef          size_t           _counter
-    cdef          Sketch_t*        _sk
-    cdef          bool             _indexed
-    cdef          vector[uint64_t] _lengths
-    cdef readonly Parameters       parameters
-
-    # --- Magic methods ------------------------------------------------------
-
-    def __cinit__(self, Parameters parameters):
-        self.parameters = parameters
-        self._sk = new Sketch_t(parameters._param)
-        self._indexed = True  # an empty Sketch is already indexed
+        #
+        self._indexed = True
         self._counter = 0
 
     def __dealloc__(self):
@@ -141,7 +172,7 @@ cdef class Sketch:
         cdef kseq_t        kseq
         cdef ContigInfo_t  info
         cdef size_t        seql  = len(seq)
-        cdef Parameters_t* param = &self.parameters._param
+        cdef Parameters_t* param = &self._param
 
         # store the sequence name and size
         info.name = string(name)
@@ -150,10 +181,11 @@ cdef class Sketch:
 
         # check the sequence is large enough to compute minimizers
         if seql >= param.windowSize and seql >= param.kmerSize:
-            # create an adapter sequence object
-            # NOTE: normally kseq_t owns the buffer, but here we just give
-            # a view to avoid having to reallocate when `addMinimizers` is
-            # just going to read from the sequence.
+            # WARNING: Normally kseq_t owns the buffer, but here we just give
+            #          a view to avoid reallocation if possible. However,
+            #          `addMinimizers` will always attempt to make the
+            #          sequence uppercase, so it should be checked in
+            #          advance that the sequence is already uppercase.
             kseq.seq.l = kseq.seq.m = seql
             kseq.seq.s = <char*> <const unsigned char*> &seq[0]
             # compute the minimizers
@@ -167,7 +199,7 @@ cdef class Sketch:
             );
 
         # record the reference sequence name and length
-        self.parameters._param.refSequences.push_back(<string> name)
+        self._param.refSequences.push_back(<string> name)
         self._lengths.push_back(seql)
 
         # this genome only contained a single sequence
@@ -195,7 +227,7 @@ cdef class Sketch:
         """
         assert self.parameters is not None
 
-        cdef Parameters_t* p = &self.parameters._param
+        cdef Parameters_t* p = &self._param
         if len(sequence) < p.windowSize or len(sequence) < p.kmerSize:
             warnings.warn(UserWarning, (
                 "Sketch received a short sequence relative to parameters, "
@@ -264,7 +296,7 @@ cdef class Sketch:
         cdef vector[CGI_Results]    results
         cdef uint64_t               seql                  = len(seq)
         cdef uint64_t               total_query_fragments = 0
-        cdef Parameters_t           p                     = self.parameters._param
+        cdef Parameters_t           p                     = self._param
 
         if seql >= p.windowSize and seql >= p.kmerSize and seql >= p.minReadLength:
             # create a new mapper with the given mapping result vector
@@ -298,7 +330,7 @@ cdef class Sketch:
             shared_length = res.countSeq * p.minReadLength
             if shared_length >= min_length * p.minFraction:
                 print({
-                    "name": self.parameters._param.refSequences[res.refGenomeId-1].decode("utf-8"),
+                    "name": self._param.refSequences[res.refGenomeId-1].decode("utf-8"),
                     "identity": res.identity,
                     "matches": res.countSeq,
                     "fragments": res.totalQueryFragments,
@@ -306,7 +338,7 @@ cdef class Sketch:
 
     def query_sequence(self, str sequence):
 
-        cdef Parameters_t* p = &self.parameters._param
+        cdef Parameters_t* p = &self._param
         if len(sequence) < p.windowSize or len(sequence) < p.kmerSize or len(sequence) < p.minReadLength:
             warnings.warn(UserWarning, (
                 "Sketch received a short sequence relative to parameters, "

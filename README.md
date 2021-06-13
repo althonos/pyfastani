@@ -1,6 +1,6 @@
 # 🐍⏩🧬 pyFastANI [![Stars](https://img.shields.io/github/stars/althonos/pyfastani.svg?style=social&maxAge=3600&label=Star)](https://github.com/althonos/pyfastani/stargazers)
 
-*[Cython](https://cython.org/) bindings and Python interface to [FastANI](https://github.com/ParBLiSS/FastANI/), a tool for fast whole-genome similarity estimation.*
+*[Cython](https://cython.org/) bindings and Python interface to [FastANI](https://github.com/ParBLiSS/FastANI/), a method for fast whole-genome similarity estimation.*
 
 [![Source](https://img.shields.io/badge/source-GitHub-303030.svg?maxAge=2678400&style=flat-square)](https://github.com/althonos/pyfastani/)
 [![GitHub issues](https://img.shields.io/github/issues/althonos/pyfastani.svg?style=flat-square&maxAge=600)](https://github.com/althonos/pyfastani/issues)
@@ -46,11 +46,11 @@ import pyfastani
 s1 = next(Bio.SeqIO.parse("vendor/FastANI/data/Escherichia_coli_str_K12_MG1655.fna", "fasta"))
 s2 = next(Bio.SeqIO.parse("vendor/FastANI/data/Shigella_flexneri_2a_01.fna", "fasta"))
 
-s = pyfastani.Sketch(pyfastani.Parameters())
+m = pyfastani.Mapper()
 
-s.add_sequence(s1.id, str(s1.seq))
-s.index()
-s.query_sequence(str(s2.seq))
+m.add_sequence(s1.id, str(s1.seq))
+m.index()
+m.query_sequence(str(s2.seq))
 ```
 
 ## 💭 Feedback
@@ -65,7 +65,9 @@ in a simple, easily reproducible situation.
 
 ### 🏗️ Contributing
 
-Contributions are more than welcome! See [`CONTRIBUTING.md`](https://github.com/althonos/pyFastANI/blob/master/CONTRIBUTING.md) for more details.
+Contributions are more than welcome! See
+[`CONTRIBUTING.md`](https://github.com/althonos/pyFastANI/blob/master/CONTRIBUTING.md)
+for more details.
 
 
 ## ⚖️ License
@@ -73,11 +75,12 @@ Contributions are more than welcome! See [`CONTRIBUTING.md`](https://github.com/
 This library is provided under the [MIT License](https://choosealicense.com/licenses/mit/).
 The FastANI code was written by [Chirag Jain](https://github.com/cjain7)
 and is distributed under the terms of the
-[Apache License 2.0](https://choosealicense.com/licenses/apache-2.0/) license.
+[Apache License 2.0](https://choosealicense.com/licenses/apache-2.0/) license,
+unless otherwise specified from vendored sources.
 See `vendor/FastANI/LICENSE` for more information.
 
 *This project is in no way not affiliated, sponsored, or otherwise endorsed
-by the [original FastANI authors](http://hmmer.org/). It was developed by
+by the [original FastANI authors](https://github.com/cjain7). It was developed by
 [Martin Larralde](https://github.com/althonos/) during his PhD project
 at the [European Molecular Biology Laboratory](https://www.embl.de/) in
 the [Zeller team](https://github.com/zellerlab).*
