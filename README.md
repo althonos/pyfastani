@@ -6,7 +6,6 @@
 [![Coverage](https://img.shields.io/codecov/c/gh/althonos/pyfastani?style=flat-square&maxAge=3600)](https://codecov.io/gh/althonos/pyfastani/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square&maxAge=2678400)](https://choosealicense.com/licenses/mit/)
 [![PyPI](https://img.shields.io/pypi/v/pyfastani.svg?style=flat-square&maxAge=3600)](https://pypi.org/project/pyfastani)
-[![Bioconda](https://img.shields.io/conda/vn/bioconda/pyfastani?style=flat-square&maxAge=3600)](https://anaconda.org/bioconda/pyfastani)
 [![Wheel](https://img.shields.io/pypi/wheel/pyfastani.svg?style=flat-square&maxAge=3600)](https://pypi.org/project/pyfastani/#files)
 [![Python Versions](https://img.shields.io/pypi/pyversions/pyfastani.svg?style=flat-square&maxAge=600)](https://pypi.org/project/pyfastani/#files)
 [![Python Implementations](https://img.shields.io/pypi/implementation/pyfastani.svg?style=flat-square&maxAge=600&label=impl)](https://pypi.org/project/pyfastani/#files)

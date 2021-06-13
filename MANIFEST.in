@@ -1,0 +1,30 @@
+# metadata files
+include CHANGELOG.md
+include CONTRIBUTING.md
+include COPYING
+include README.md
+include setup.cfg
+include setup.py
+include pyproject.toml
+
+# vendored sources
+include vendor/FastANI/bootstrap.sh
+include vendor/FastANI/configure.ac
+include vendor/FastANI/INSTALL.txt
+include vendor/FastANI/LICENSE
+include vendor/FastANI/Makefile.in
+include vendor/FastANI/README.md
+recursive-include vendor/FastANI/src *.h *.hpp *.md
+
+# Cython headers
+recursive-include include   *.pxd
+
+# Cython sources
+recursive-include pyfastani *.pyx *.h *.py
+include pyfastani/_utils.cpp
+include pyfastani/_utils.hpp
+include pyfastani/_utils.pxd
+
+# test files
+include pyfastani/tests/requirements.txt
+
