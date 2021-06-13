@@ -136,6 +136,8 @@ jobs:
       run: brew install boost
     - name: Build C extension
       run: python setup.py build_ext --inplace --debug
+    - name: Install numpy
+      run: python -m pip install numpy
     - name: Install tests requirements
       run: python -m pip install -r pyfastani/tests/requirements.txt
     - name: Test with coverage
