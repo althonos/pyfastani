@@ -43,6 +43,25 @@ from _utils cimport kseq_ptr_t
 import warnings
 
 
+# --- Cython helpers ---------------------------------------------------------
+
+cdef bool isupper(const unsigned char[::1] seq):
+    """Check if a buffer contains only upper case characters
+    """
+    cdef size_t i
+    for i in range(seq.shape[0]):
+        if seq[i] >= b'a' and seq[i] <= b'z':
+            return False
+    return True
+
+cdef void upper(unsigned char[::1] seq):
+    """Make the letters in a buffer upper case, in place.
+    """
+    cdef size_t i
+    for i in range(seq.shape[0]):
+        if seq[i] >= b'a' and seq[i] <= b'z':
+            seq[i] -= 32
+
 # --- Cython classes ---------------------------------------------------------
 
 cdef class Mapper:
@@ -180,44 +199,40 @@ cdef class Mapper:
         cdef const unsigned char[::1] seq
         cdef kseq_t                   kseq
         cdef ContigInfo_t             info
-        cdef size_t                   seql
         cdef size_t                   seql_total = 0
         cdef Parameters_t*            param      = &self._param
 
         for contig in contigs:
-            # get the length of the contig
-            seql = len(contig)
-
-            # store the contig name and size
-            # (we just use the same name for all contigs)
-            info.name = string(name)
-            info.len = seql
-            self._sk.metadata.push_back(info)
-
             # encode the sequence if needed
             if isinstance(contig, str):
                 contig = contig.encode("ascii")
-
             # make sure the sequence is uppercase, otherwise a `makeUpperCase`
             # is going to write in our read-only buffer in `addMinimizers`
-            if not contig.isupper():
+            if not isupper(contig):
                 warnings.warn(
                     UserWarning,
                     "Contig contains lowercase characters, reallocating."
                 )
-                contig = contig.upper()
+                contig = bytearray(contig)
+                upper(contig)
 
             # get a memory view of the sequence
             seq = contig
 
+            # store the contig name and size
+            # (we just use the same name for all contigs)
+            info.name = string(name)
+            info.len = seq.shape[0]
+            self._sk.metadata.push_back(info)
+
             # check the sequence is large enough to compute minimizers
-            if seql >= param.windowSize and seql >= param.kmerSize:
+            if seq.shape[0] >= param.windowSize and seq.shape[0] >= param.kmerSize:
                 # WARNING: Normally kseq_t owns the buffer, but here we just give
                 #          a view to avoid reallocation if possible. However,
                 #          `addMinimizers` will always attempt to make the
                 #          sequence uppercase, so it should be checked in
                 #          advance that the sequence is already uppercase.
-                kseq.seq.l = kseq.seq.m = seql
+                kseq.seq.l = kseq.seq.m = seq.shape[0]
                 kseq.seq.s = <char*> <const unsigned char*> &seq[0]
                 # compute the minimizers
                 with nogil:
@@ -236,7 +251,7 @@ cdef class Mapper:
                 ))
 
             # compute the genome length with respect to the fragment length
-            seql_total += (seql // param.minReadLength) * param.minReadLength
+            seql_total += (seq.shape[0] // param.minReadLength) * param.minReadLength
 
             # the Sketch will need to be reindexed since we added a new sequence
             self._counter += 1
@@ -357,25 +372,27 @@ cdef class Mapper:
         cdef vector[CGI_Results]      results
         cdef const unsigned char[::1] seq
         cdef MappingResultsVector_t   final_mappings
-        cdef uint64_t                 seql            = len(sequence)
+        cdef uint64_t                 seql
         cdef uint64_t                 total_fragments = 0
         cdef Parameters_t             p               = self._param
         cdef list                     hits            = []
 
+        # make sure the sequence is bytes
+        if isinstance(sequence, str):
+            sequence = sequence.encode("ascii")
         # make sure the sequence is uppercase, otherwise a `makeUpperCase`
         # is going to write in our read-only buffer in `addMinimizers`
-        if not sequence.isupper():
+        if not isupper(sequence):
             warnings.warn(
                 UserWarning,
                 "Sequence contains lowercase characters, reallocating."
             )
-            sequence = sequence.upper()
-        # make sure the sequence is bytes
-        if isinstance(sequence, str):
-            sequence = sequence.encode("ascii")
+            sequence = bytearray(sequence)
+            upper(sequence)
 
         # get a memory view of the sequence
         seq = sequence
+        seql = seq.shape[0]
 
         # query if the sequence is large enough
         if seql >= p.windowSize and seql >= p.kmerSize and seql >= p.minReadLength:
