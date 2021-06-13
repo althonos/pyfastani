@@ -19,7 +19,9 @@ FastANI internals, which has the following advantages over CLI wrappers:
 
 - **simpler compilation**: FastANI requires several additional libraries,
   which make compilation of the original binary non-trivial. In pyFastANI,
-  libraries that were needed for threading or I/O are provided as stubs.
+  libraries that were needed for threading or I/O are provided as stubs,
+  so you only need to have `boost::math` to build. Or even better, just
+  install from one of the provided wheels!
 - **single dependency**: If your software or your analysis pipeline is
   distributed as a Python package, you can add `pyfastani` as a dependency to
   your project, and stop worrying about the FastANI binary being present on
