@@ -28,23 +28,26 @@ from fastani.map.win_sketch cimport Sketch as Sketch_t
 from fastani.map.base_types cimport (
     seqno_t,
     ContigInfo as ContigInfo_t,
-    # MappingResult,
     MappingResultsVector_t,
     QueryMetaData as QueryMetaData_t,
 )
 
+# HACK: we need kseq_t* as a template argument, which is not supported by
+#       Cython at the moment, so we just `typedef kseq_t* kseq_ptr_t` in
+#       an external C++ header to make Cython happy
 from _utils cimport kseq_ptr_t
 
 
 # --- Python imports ---------------------------------------------------------
 
-import os
 import warnings
 
 
 # --- Cython classes ---------------------------------------------------------
 
 cdef class Mapper:
+    """A genome mapper using MashMap to compute whole-genome similarity.
+    """
 
     cdef size_t           _counter
     cdef Sketch_t*        _sk
@@ -130,7 +133,7 @@ cdef class Mapper:
             self._param.referenceSize
         )
 
-        #
+        # reinitialize bookkeeping values
         self._indexed = True
         self._counter = 0
 
@@ -165,7 +168,7 @@ cdef class Mapper:
 
     # --- Methods (adding references) ----------------------------------------
 
-    cdef int _add_genome(self, bytes name, object sequence) except +:
+    cdef int _add_genome(self, bytes name, object sequence) except 1:
         """Add a complete genome to the sketcher.
 
         Adapted from the ``skch::Sketch::build`` method in ``winSketch.hpp``
@@ -200,11 +203,11 @@ cdef class Mapper:
 
         # check the sequence is large enough to compute minimizers
         if seql >= param.windowSize and seql >= param.kmerSize:
-            # WARNING: Normally kseq_t owns the buffer, but here we just give
-            #          a view to avoid reallocation if possible. However,
-            #          `addMinimizers` will always attempt to make the
-            #          sequence uppercase, so it should be checked in
-            #          advance that the sequence is already uppercase.
+            # HACK: Normally kseq_t owns the buffer, but here we just give
+            #       a view to avoid reallocation if possible. However,
+            #       `addMinimizers` will always attempt to make the sequence
+            #       uppercase by writing directly to the buffer, so we must
+            #       be absolutely sure that the sequence is already uppercase.
             kseq.seq.l = kseq.seq.m = seql
             kseq.seq.s = <char*> <const unsigned char*> &seq[0]
             # compute the minimizers
@@ -245,9 +248,9 @@ cdef class Mapper:
             name (`str`): The name of the genome to add.
             sequence (`str` or `bytes`): The sequence of the genome.
 
-        Warnings:
-            `UserWarning`: When the sequence is too short for minimizers
-                to be computed for it.
+        Note:
+            Sequence must be larger than the window size and the k-mer size
+            to be sketched, otherwise no minifiers will be computed.
 
         """
         # check if bytes
@@ -256,7 +259,7 @@ cdef class Mapper:
         # delegate to the C code
         self._add_genome(name.encode("utf-8"), sequence)
 
-    cdef int _add_draft(self, bytes name, object contigs) except +:
+    cdef int _add_draft(self, bytes name, object contigs) except 1:
         """Add a draft genome to the sketcher.
 
         Adapted from the ``skch::Sketch::build`` method in ``winSketch.hpp``
@@ -319,7 +322,7 @@ cdef class Mapper:
                     )
             else:
                 warnings.warn(UserWarning, (
-                    "Sketch received a short sequence relative to parameters, "
+                    "Sketch received a short contig relative to parameters, "
                     "minimizers will not be added."
                 ))
 
@@ -338,13 +341,30 @@ cdef class Mapper:
         self._sk.sequencesByFileInfo.push_back(self._counter)
 
     def add_draft(self, str name, object contigs):
+        """Add a reference genome to the sketcher.
+
+        Using this method is fine even when the genome has a single contig,
+        although `Mapper.add_genome` is easier to use in that case.
+
+        Arguments:
+            name (`str`): The name of the genome to add.
+            sequence (`str` or `bytes`): The sequence of the genome.
+
+        Note:
+            Contigs smaller than the window size and the k-mer size will
+            be skipped.
+
+        """
         # delegate to the C code
         self._add_draft(name.encode("utf-8"), contigs)
 
-    # --- Methods (querying) -------------------------------------------------
+    # --- Methods (indexing) -------------------------------------------------
 
     def index(self):
-        """Build the index for fast lookups using minimizer table.
+        """index(self)\n--
+
+        Build the index for fast lookups using minimizer table.
+
         """
         if not self._indexed:
             # clear the maps in case we are rebuilding over a previous index
@@ -358,16 +378,27 @@ cdef class Mapper:
             self._indexed = True
 
     def is_indexed(self):
-        """Check whether or not this `Mapper` object has been indexed.
+        """is_indexed(self)\n--
+
+        Check whether or not this `Mapper` object has been indexed.
+
         """
         return self._indexed
 
     # --- Methods (querying) -------------------------------------------------
 
-    cdef MappingResultsVector_t _query_fragment(self, int i, seqno_t seq_counter, const unsigned char[::1] seq, int min_read_length, Map_t* map) nogil:
+    cdef void _query_fragment(
+        self,
+        int i,
+        seqno_t
+        seq_counter,
+        const unsigned char[::1] seq,
+        int min_read_length,
+        Map_t* map,
+        MappingResultsVector_t* l2_mappings
+    ) nogil:
 
         cdef kseq_t                 kseq_buffer
-        cdef MappingResultsVector_t l2_mappings = MappingResultsVector_t()
         cdef ofstream               out         = ofstream()
 
         cdef QueryMetaData_t[kseq_ptr_t, Map_t.MinVec_Type] query
@@ -376,9 +407,8 @@ cdef class Mapper:
         query.kseq.seq.l = query.kseq.seq.m = min_read_length
         query.seqCounter = seq_counter + i
 
-        map.mapSingleQuerySeq[QueryMetaData_t[kseq_ptr_t, Map_t.MinVec_Type]](query, l2_mappings, out)
+        map.mapSingleQuerySeq[QueryMetaData_t[kseq_ptr_t, Map_t.MinVec_Type]](query, l2_mappings[0], out)
 
-        return l2_mappings
 
     cdef object _query_genome(self, object sequence):
         """Query the sketcher for the given sequence.
@@ -414,6 +444,9 @@ cdef class Mapper:
                 "Sequence contains lowercase characters, reallocating."
             )
             sequence = sequence.upper()
+        # make sure the sequence is bytes
+        if isinstance(sequence, str):
+            sequence = sequence.encode("ascii")
 
         # get a memory view of the sequence
         seq = sequence
@@ -427,7 +460,8 @@ cdef class Mapper:
             total_fragments = fragment_count
             # map the blocks
             for i in range(fragment_count):
-                l2_mappings = self._query_fragment(i, 0, seq, p.minReadLength, map)
+                l2_mappings.clear()
+                self._query_fragment(i, 0, seq, p.minReadLength, map, &l2_mappings)
                 for m in l2_mappings:
                     final_mappings.push_back(m)
             # compute core genomic identity after successful mapping
@@ -465,11 +499,25 @@ cdef class Mapper:
         return hits
 
     def query_genome(self, object sequence):
-        """
+        """query_genome(self, sequence)\n--
+
+        Query the mapper for a complete genome.
+
+        Arguments:
+            sequence (`str` or `bytes`): The genome to query the mapper
+                with.
+
+        Note:
+            Sequence must be larger than the window size, the k-mer size,
+            and the fragment length to be mapped, otherwise an empty list
+            of hits will be returned.
+
+        Returns:
+            `list` of `~pyfastani.Hit`: The hits found for the query.
+
         """
         # check if bytes
-        if isinstance(sequence, str):
-            sequence = sequence.encode("ascii")
+
         # delegate to C code
         return self._query_genome(sequence)
 
@@ -482,8 +530,27 @@ cdef class Hit:
     cdef readonly seqno_t fragments
     cdef readonly float   identity
 
-    def __cinit__(self, str name, seqno_t matches, seqno_t fragments, float identity):
+    def __init__(self, str name, float identity, seqno_t matches, seqno_t fragments):
+        """__init__(self, name, identity, matches, fragments)\n--
+
+        Create a new `Hit` instance with the given parameters.
+
+        """
         self.name = name
         self.matches = matches
         self.fragments = fragments
         self.identity = identity
+
+    def __repr__(self):
+        ty = type(self).__name__
+        return "{}(name={!r}, identity={!r} matches={!r}, fragments={!r})".format(
+            ty, self.name, self.identity, self.matches, self.fragments
+        )
+
+    def __eq__(self, Hit other):
+        return (
+                self.name == other.name
+            and self.matches == other.matches
+            and self.fragments == other.fragments
+            and self.identity == other.identity
+        )
