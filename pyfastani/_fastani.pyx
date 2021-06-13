@@ -165,21 +165,21 @@ cdef class Mapper:
     def occurences_threshold(self):
         """`int`: The occurence threshold above which minimizers are ignored.
         """
-        assert self._sk != NULL
+        assert self._sk != nullptr
         return self._sk.freqThreshold
 
     @property
     def percentage_threshold(self):
         """`float`: The fraction of most frequent minimizers to ignore.
         """
-        assert self._sk != NULL
+        assert self._sk != nullptr
         return self._sk.percentageThreshold
 
     @property
     def names(self):
         """`list` of `str`: The names of the sequences currently stored.
         """
-        assert self._sk != NULL
+        assert self._sk != nullptr
         return [
             contig_info.name.decode("utf-8")
             for contig_info in self._sk.metadata
@@ -194,7 +194,7 @@ cdef class Mapper:
         to work without the ``kseq`` I/O.
 
         """
-        assert self._sk != NULL
+        assert self._sk != nullptr
 
         cdef const unsigned char[::1] seq
         cdef kseq_t                   kseq
@@ -362,8 +362,7 @@ cdef class Mapper:
             query.
 
         """
-        assert self._sk != NULL
-        assert self.parameters is not None
+        assert self._sk != nullptr
 
         cdef int                      i
         cdef int                      fragment_count
