@@ -171,6 +171,14 @@ class build_ext(_build_ext):
         else:
             ext.define_macros.append(("CYTHON_WITHOUT_ASSERTIONS", 1))
 
+        # make sure to build with C++11
+        if self.compiler.compiler_type == "msvc":
+            ext.extra_compile_args.append("/std:c++11")
+            ext.extra_link_args.append("/std:c++11")
+        else:
+            ext.extra_compile_args.append("-std=c++11")
+            ext.extra_link_args.append("-std=c++11")
+
         # build the rest of the extension as normal
         _build_ext.build_extension(self, ext)
 
@@ -201,10 +209,8 @@ extensions = [
         "pyfastani._fastani",
         [os.path.join("pyfastani", x) for x in ("_utils.cpp", "_fastani.pyx")],
         language="c++",
-        libraries=["gsl", "gslcblas", "stdc++", "m"],
         include_dirs=["include", "pyfastani"],
-        extra_compile_args=["-std=c++11"],
-        extra_link_args=["-std=c++11"],
+        define_macros=[("USE_BOOST", 1)],
     )
 ]
 
