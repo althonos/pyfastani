@@ -1,6 +1,11 @@
+import os
 import unittest
 
 import pyfastani
+
+PROJECT_PATH = os.path.realpath(os.path.join(__file__, "..", "..", ".."))
+FASTANI_PATH = os.path.join(PROJECT_PATH, "vendor", "FastANI")
+
 
 
 class _TestMapper(object):
@@ -23,11 +28,11 @@ class _TestMapper(object):
 
         mapper = pyfastani.Mapper()
 
-        contigs = self._load_fasta("vendor/FastANI/data/Shigella_flexneri_2a_01.fna")
+        contigs = self._load_fasta(os.path.join(FASTANI_PATH, "data", "Shigella_flexneri_2a_01.fna"))
         mapper.add_draft("Shigella_flexneri_2a_01", map(self._get_sequence, contigs))
         mapper.index()
 
-        query = self._load_fasta("vendor/FastANI/data/Escherichia_coli_str_K12_MG1655.fna")
+        query = self._load_fasta(os.path.join(FASTANI_PATH, "data", "Escherichia_coli_str_K12_MG1655.fna"))
         hits = mapper.query_genome(self._get_sequence(query[0]))
 
         self.assertEqual(len(hits), 1)
