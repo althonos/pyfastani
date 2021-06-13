@@ -55,6 +55,13 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
+# Profilers
+callgrind.out.*
+vgcore.*
+mprofile_*
+*.cprof
+*.calltree
+
 ### Python ###
 # Byte-compiled / optimized / DLL files
 __pycache__/
