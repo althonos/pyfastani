@@ -36,21 +36,59 @@ but it should already pack enough features to run one-to-one computations.*
 
 ## 💡 Example
 
-Use `pyfastani` to compute the ANI between the two sequences, loading them
-with the [`Bio.SeqIO`](https://biopython.org/wiki/SeqIO) module:
+The following snippets show how to compute the ANI between two genomes,
+with the reference being a draft genome. For one-to-many or many-to-many
+searches, simply add additional references with `m.add_draft` before indexing.
+*Note that any name can be given to the reference sequences, this will just
+affect the `name` attribute of the hits returned for a query.*
+
+### 🔬 [Biopython](https://github.com/biopython/biopython)
+
+Biopython does not let us access to the sequence directly, so we need to
+convert it to bytes first with the `encode` method.
 
 ```python
-import Bio.SeqIO
 import pyfastani
-
-s1 = next(Bio.SeqIO.parse("vendor/FastANI/data/Escherichia_coli_str_K12_MG1655.fna", "fasta"))
-s2 = next(Bio.SeqIO.parse("vendor/FastANI/data/Shigella_flexneri_2a_01.fna", "fasta"))
+import Bio.SeqIO
 
 m = pyfastani.Mapper()
 
-m.add_sequence(s1.id, str(s1.seq))
+# add a single draft genome to the mapper, and index it
+ref = list(Bio.SeqIO.parse("vendor/FastANI/data/Shigella_flexneri_2a_01.fna", "fasta"))
+m.add_draft("Shigella_flexneri_2a_01", (record.seq.encode() for record in ref))
 m.index()
-m.query_sequence(str(s2.seq))
+
+# read the query and query the mapper
+query = Bio.SeqIO.read("vendor/FastANI/data/Escherichia_coli_str_K12_MG1655.fna", "fasta")
+hits = m.query_sequence(query.seq.encode())
+
+for hit in hits:
+    print("Escherichia_coli_str_K12_MG1655", hit.name, hit.identity, hit.matches, hit.fragments)
+```
+
+### 🧪 [Scikit-bio](https://github.com/biocore/scikit-bio)
+
+Scikit-bio lets us access to the sequence directly as a `numpy` array, but
+shows the values as byte strings by default. To make them readable as
+`char` (for compatibility with the C code), they must be cast with
+`seq.values.view('B')`.
+
+```python
+import pyfastani
+import skbio.io
+
+m = pyfastani.Mapper()
+
+ref = list(skbio.io.read("vendor/FastANI/data/Shigella_flexneri_2a_01.fna", "fasta"))
+m.add_draft("Shigella_flexneri_2a_01", (seq.values.view('B') for seq in ref))
+m.index()
+
+# read the query and query the mapper
+query = next(skbio.io.read("vendor/FastANI/data/Escherichia_coli_str_K12_MG1655.fna", "fasta"))
+hits = m.query_genome(query.values.view('B'))
+
+for hit in hits:
+    print("Escherichia_coli_str_K12_MG1655", hit.name, hit.identity, hit.matches, hit.fragments)
 ```
 
 ## 💭 Feedback
