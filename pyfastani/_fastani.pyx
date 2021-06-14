@@ -230,15 +230,15 @@ cdef class Mapper:
 
             # check the sequence is large enough to compute minimizers
             if seq.shape[0] >= param.windowSize and seq.shape[0] >= param.kmerSize:
-                # WARNING: Normally kseq_t owns the buffer, but here we just give
-                #          a view to avoid reallocation if possible. However,
-                #          `addMinimizers` will always attempt to make the
-                #          sequence uppercase, so it should be checked in
-                #          advance that the sequence is already uppercase.
-                kseq.seq.l = kseq.seq.m = seq.shape[0]
-                kseq.seq.s = <char*> <const unsigned char*> &seq[0]
-                # compute the minimizers
                 with nogil:
+                    # WARNING: Normally kseq_t owns the buffer, but here we just give
+                    #          a view to avoid reallocation if possible. However,
+                    #          `addMinimizers` will always attempt to make the
+                    #          sequence uppercase, so it should be checked in
+                    #          advance that the sequence is already uppercase.
+                    kseq.seq.l = kseq.seq.m = seq.shape[0]
+                    kseq.seq.s = <char*> <const unsigned char*> &seq[0]
+                    # compute the minimizers
                     addMinimizers(
                         self._sk.minimizerIndex,
                         &kseq,
@@ -336,8 +336,8 @@ cdef class Mapper:
 
     # --- Methods (querying) -------------------------------------------------
 
+    @staticmethod
     cdef void _query_fragment(
-        self,
         int i,
         seqno_t
         seq_counter,
@@ -406,20 +406,21 @@ cdef class Mapper:
 
             # query if the sequence is large enough
             if seql >= p.windowSize and seql >= p.kmerSize and seql >= p.minReadLength:
-                # compute the expected number of blocks
-                fragment_count = seql // p.minReadLength
-                # map the blocks
-                for i in range(fragment_count):
-                    self._query_fragment(
-                        i,
-                        total_fragments,
-                        seq,
-                        p.minReadLength,
-                        map,
-                        &kseq,
-                        &out,
-                        &final_mappings
-                    )
+                with nogil:
+                    # compute the expected number of blocks
+                    fragment_count = seql // p.minReadLength
+                    # map the blocks
+                    for i in range(fragment_count):
+                        Mapper._query_fragment(
+                            i,
+                            total_fragments,
+                            seq,
+                            p.minReadLength,
+                            map,
+                            &kseq,
+                            &out,
+                            &final_mappings
+                        )
                 # record the number of fragments
                 total_fragments += fragment_count
             else:
