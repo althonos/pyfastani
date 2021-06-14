@@ -2,8 +2,8 @@
 
 *[Cython](https://cython.org/) bindings and Python interface to [FastANI](https://github.com/ParBLiSS/FastANI/), a method for fast whole-genome similarity estimation.*
 
-[![Actions](https://img.shields.io/github/workflow/status/althonos/pyfastani/Test/master?logo=github&style=flat-square&maxAge=300)](https://github.com/althonos/pyfastani/actions)
-[![Coverage](https://img.shields.io/codecov/c/gh/althonos/pyfastani?style=flat-square&maxAge=3600)](https://codecov.io/gh/althonos/pyfastani/)
+[![Actions](https://img.shields.io/github/workflow/status/althonos/pyfastani/Test/main.svg?logo=github&style=flat-square&maxAge=300)](https://github.com/althonos/pyfastani/actions)
+[![Coverage](https://img.shields.io/codecov/c/gh/althonos/pyfastani/branch/main.svg?style=flat-square&maxAge=3600)](https://codecov.io/gh/althonos/pyfastani/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square&maxAge=2678400)](https://choosealicense.com/licenses/mit/)
 [![PyPI](https://img.shields.io/pypi/v/pyfastani.svg?style=flat-square&maxAge=3600)](https://pypi.org/project/pyfastani)
 [![Wheel](https://img.shields.io/pypi/wheel/pyfastani.svg?style=flat-square&maxAge=3600)](https://pypi.org/project/pyfastani/#files)
