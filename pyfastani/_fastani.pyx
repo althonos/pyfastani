@@ -360,11 +360,6 @@ cdef class Mapper:
 
         Adapted from the ``skch::Map::mapQuery`` method in ``computeMap.hpp``.
 
-        Todo:
-            Doctor the memory management so that it's not needed to
-            reallocate a new ``Map_t`` and a new result vector at each
-            query.
-
         """
         assert self._sk != nullptr
 
