@@ -363,11 +363,10 @@ cdef class Sketch:
         cdef Mapper mapper = Mapper.__new__(Mapper)
         mapper._param = self._param # copy params
         mapper._sk = self._sk
-        mapper._names = self._names
+        mapper._names = self._names.copy()
         mapper._lengths.swap(self._lengths)
         # reset the current sketch
         self._sk = new Sketch_t(self._param)
-        self._names = []
         self.clear()
         # return the new mapper
         return mapper
@@ -517,13 +516,18 @@ cdef class Mapper:
             contigs (iterable or `str` or `bytes`): The genome to query the mapper
                 with.
 
-        Note:
+        Returns:
+            `list` of `~pyfastani.Hit`: The hits found for the query.
+
+        Hint:
             Sequence must be larger than the window size, the k-mer size,
             and the fragment length to be mapped, otherwise an empty list
             of hits will be returned.
 
-        Returns:
-            `list` of `~pyfastani.Hit`: The hits found for the query.
+        Note:
+            This method is reentrant and releases the GIL when hashing
+            the blocks allowing to query the mapper in parallel for
+            several individual genomes.
 
         """
         # delegate to C code
@@ -538,13 +542,18 @@ cdef class Mapper:
             sequence (`str` or `bytes`): The genome to query the mapper
                 with.
 
-        Note:
+        Returns:
+            `list` of `~pyfastani.Hit`: The hits found for the query.
+
+        Hint:
             Sequence must be larger than the window size, the k-mer size,
             and the fragment length to be mapped, otherwise an empty list
             of hits will be returned.
 
-        Returns:
-            `list` of `~pyfastani.Hit`: The hits found for the query.
+        Note:
+            This method is reentrant and releases the GIL when hashing
+            the blocks allowing to query the mapper in parallel for
+            several individual genomes.
 
         """
         # delegate to C code

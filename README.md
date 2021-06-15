@@ -77,19 +77,21 @@ instead of `bytes(record.seq)`.
 import pyfastani
 import Bio.SeqIO
 
-m = pyfastani.Mapper()
+sketch = pyfastani.Sketch()
 
 # add a single draft genome to the mapper, and index it
 ref = list(Bio.SeqIO.parse("vendor/FastANI/data/Shigella_flexneri_2a_01.fna", "fasta"))
-m.add_draft("Shigella_flexneri_2a_01", (bytes(record.seq) for record in ref))
-m.index()
+sketch.add_draft("S. flexneri", (bytes(record.seq) for record in ref))
+
+# index the sketch and get a mapper
+mapper = sketch.index()
 
 # read the query and query the mapper
 query = Bio.SeqIO.read("vendor/FastANI/data/Escherichia_coli_str_K12_MG1655.fna", "fasta")
 hits = m.query_sequence(bytes(query.seq))
 
 for hit in hits:
-    print("Escherichia_coli_str_K12_MG1655", hit.name, hit.identity, hit.matches, hit.fragments)
+    print("E. coli", hit.name, hit.identity, hit.matches, hit.fragments)
 ```
 
 ### 🧪 [Scikit-bio](https://github.com/biocore/scikit-bio)
