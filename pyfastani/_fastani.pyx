@@ -1,5 +1,5 @@
 # coding: utf-8
-# cython: language_level=3, linetrace=True, language=cpp
+# cython: language_level=3, linetrace=True, language=cpp, binding=False
 """Bindings to FastANI, a method for fast whole-genome similarity estimation.
 """
 
@@ -193,9 +193,9 @@ cdef class Sketch:
         """
         assert self._sk != nullptr
 
+        cdef object                   contig
         cdef const unsigned char[::1] seq
         cdef kseq_t                   kseq
-        cdef ContigInfo_t             info
         cdef size_t                   seql_total = 0
         cdef Parameters_t*            param      = &self._param
 
@@ -215,13 +215,6 @@ cdef class Sketch:
 
             # get a memory view of the sequence
             seq = contig
-
-            # store the contig name and size
-            # (we just use the same name for all contigs)
-            # <-- actually useless, only useful for reporting
-            # info.name = string(name)
-            # info.len = seq.shape[0]
-            # self._sk.metadata.push_back(info)
 
             # check the sequence is large enough to compute minimizers
             if seq.shape[0] >= param.windowSize and seq.shape[0] >= param.kmerSize:
@@ -391,8 +384,7 @@ cdef class Mapper:
     @staticmethod
     cdef void _query_fragment(
         int i,
-        seqno_t
-        seq_counter,
+        seqno_t seq_counter,
         const unsigned char[::1] seq,
         int min_read_length,
         Map_t* map,
@@ -418,19 +410,21 @@ cdef class Mapper:
         assert self._sk != nullptr
 
         cdef int                      i               # fragment counter
-        cdef kseq_t                   kseq            #
+        cdef kseq_t                   kseq
         cdef Map_t*                   map
         cdef MappingResultsVector_t   final_mappings
         cdef vector[CGI_Results]      results
+        cdef CGI_Results              result
         cdef object                   contig
         cdef const unsigned char[::1] seq
-        cdef uint64_t                 seql
-        cdef int                      fragment_count  = 0
-        cdef int                      seq_counter     = 0
+        cdef uint64_t                 seql            = 0
+        cdef uint64_t                 min_length
+        cdef uint64_t                 shared_length
+        cdef int                      fragment_count
         cdef uint64_t                 total_fragments = 0
         cdef Parameters_t             p               = self._param
         cdef list                     hits            = []
-        cdef ofstream                 out             = ofstream()
+        cdef ofstream                 out
 
         # create a new mapper with the given mapping result vector
         map = new Map_t(p, self._sk[0], total_fragments, 0)
@@ -473,37 +467,37 @@ cdef class Mapper:
                 # record the number of fragments
                 total_fragments += fragment_count
             else:
-                fragmentCount = 0
                 warnings.warn(UserWarning, (
                     "Mapper received a short sequence relative to parameters, "
                     "mapping will not be computed."
                 ))
 
         # compute core genomic identity after successful mapping
-        computeCGI(
-            p,
-            final_mappings,
-            map[0],
-            self._sk[0],
-            total_fragments, # total query fragments
-            0, # queryFileNo, only used for visualization, ignored
-            string(), # fileName, only used for reporting, ignored
-            results,
-        )
+        with nogil:
+            computeCGI(
+                p,
+                final_mappings,
+                map[0],
+                self._sk[0],
+                total_fragments, # total query fragments
+                0, # queryFileNo, only used for visualization, ignored
+                string(), # fileName, only used for reporting, ignored
+                results,
+            )
         # free the map
         del map
         # build and return the list of hits
-        for res in results:
-            assert res.refGenomeId < self._lengths.size()
-            assert res.refGenomeId < len(self._names)
-            min_length = min(seql, self._lengths[res.refGenomeId])
-            shared_length = res.countSeq * p.minReadLength
+        for result in results:
+            assert result.refGenomeId < self._lengths.size()
+            assert result.refGenomeId < len(self._names)
+            min_length = min(seql, self._lengths[result.refGenomeId])
+            shared_length = result.countSeq * p.minReadLength
             if shared_length >= min_length * p.minFraction:
                 hits.append(Hit(
-                    name=self._names[res.refGenomeId],
-                    identity=res.identity,
-                    matches=res.countSeq,
-                    fragments=res.totalQueryFragments,
+                    name=self._names[result.refGenomeId],
+                    identity=result.identity,
+                    matches=result.countSeq,
+                    fragments=result.totalQueryFragments,
                 ))
         return hits
 
@@ -580,7 +574,7 @@ cdef class Hit:
         self.identity = identity
 
     def __repr__(self):
-        ty = type(self).__name__
+        cdef str ty = type(self).__name__
         return "{}(name={!r}, identity={!r} matches={!r}, fragments={!r})".format(
             ty, self.name, self.identity, self.matches, self.fragments
         )
