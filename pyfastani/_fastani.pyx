@@ -72,11 +72,13 @@ cdef class Sketch:
     """An index computing minimizers over the reference genomes.
     """
 
-    cdef size_t           _counter
-    cdef Sketch_t*        _sk
-    cdef vector[uint64_t] _lengths
-    cdef list             _names
-    cdef Parameters_t     _param
+    # --- Attributes ---------------------------------------------------------
+
+    cdef Sketch_t*        _sk       # the internal Sketch_t
+    cdef Parameters_t     _param    # the internal Parameters_t (const)
+    cdef size_t           _counter  # the number of contigs (not genomes)
+    cdef vector[uint64_t] _lengths  # array mapping each genome to its length
+    cdef list             _names    # list mapping each genome to its name
 
     # --- Magic methods ------------------------------------------------------
 
@@ -90,6 +92,8 @@ cdef class Sketch:
         self._param.matrixOutput = False
         # create a new Sketch with the parameters
         self._sk = new Sketch_t(self._param)
+        # create a new list of names
+        self._names = []
 
     def __init__(
         self,
@@ -156,10 +160,9 @@ cdef class Sketch:
             self._param.referenceSize
         )
 
-        # initialize bookkeeping values
-        self._names = []
-        self._lengths = vector[uint64_t]()
-        self._counter = 0
+        # initialize bookkeeping values and make sure self._sk is cleared
+        # (in case __init__ is called more than once)
+        self.clear()
 
     def __dealloc__(self):
         del self._sk
@@ -171,14 +174,7 @@ cdef class Sketch:
         """`int`: The occurence threshold above which minimizers are ignored.
         """
         assert self._sk != nullptr
-        return self._sk.freqThreshold
-
-    @property
-    def percentage_threshold(self):
-        """`float`: The fraction of most frequent minimizers to ignore.
-        """
-        assert self._sk != nullptr
-        return self._sk.percentageThreshold
+        return self._sk.getFreqThreshold()
 
     @property
     def names(self):
@@ -186,7 +182,7 @@ cdef class Sketch:
         """
         return self._names[:]
 
-    # --- Methods (adding references) ----------------------------------------
+    # --- Methods ------------------------------------------------------------
 
     cdef int _add_draft(self, object name, object contigs) except 1:
         """Add a draft genome to the sketcher.
@@ -265,7 +261,7 @@ cdef class Sketch:
         # record the number of contigs in this genome
         self._sk.sequencesByFileInfo.push_back(self._counter)
 
-    cdef Sketch add_draft(self, object name, object contigs):
+    cpdef Sketch add_draft(self, object name, object contigs):
         """add_draft(self, name, contigs)\n--
 
         Add a reference draft genome to the sketcher.
@@ -291,7 +287,7 @@ cdef class Sketch:
         self._add_draft(name, contigs)
         return self
 
-    cdef Sketch add_genome(self, object name, object sequence):
+    cpdef Sketch add_genome(self, object name, object sequence):
         """add_genome(self, name, sequence)\n--
 
         Add a reference genome to the sketcher.
@@ -317,7 +313,28 @@ cdef class Sketch:
         self._add_draft(name, (sequence,))
         return self
 
-    # --- Methods (indexing) -------------------------------------------------
+    cpdef Sketch clear(self):
+        """clear(self)\n--
+
+        Reset the `Sketch`, removing any reference genome it may contain.
+
+        Returns:
+            `Sketch`: the object itself, for method chaining.
+
+        """
+        # reset self
+        self._names.clear()
+        self._lengths.clear()
+        self._counter = 0
+        # reset self._sk
+        self._sk.freqThreshold = INT_MAX
+        self._sk.metadata.clear()
+        self._sk.sequencesByFileInfo.clear()
+        self._sk.minimizerPosLookupIndex.clear()
+        self._sk.minimizerIndex.clear()
+        self._sk.minimizerFreqHistogram.clear()
+        # return self for chaining
+        return self
 
     cpdef Mapper index(self):
         """index(self)\n--
@@ -342,18 +359,16 @@ cdef class Sketch:
         # compute the index and the frequency histogram
         self._sk.index()
         self._sk.computeFreqHist()
-
         # create the Mapper for this Sketch
         cdef Mapper mapper = Mapper.__new__(Mapper)
         mapper._param = self._param # copy params
         mapper._sk = self._sk
         mapper._names = self._names
         mapper._lengths.swap(self._lengths)
-
         # reset the current sketch
-        self._names = []
         self._sk = new Sketch_t(self._param)
-
+        self._names = []
+        self.clear()
         # return the new mapper
         return mapper
 
@@ -362,13 +377,14 @@ cdef class Mapper:
     """A genome mapper using Murmur3 hashes and k-mers to compute ANI.
     """
 
+    # --- Attributes ---------------------------------------------------------
+
     cdef Sketch_t*        _sk
     cdef vector[uint64_t] _lengths
     cdef list             _names
     cdef Parameters_t     _param
 
-    def __cinit__(self):
-        self._sk = NULL
+    # --- Magic methods ------------------------------------------------------
 
     def __dealloc__(self):
         del self._sk
@@ -392,7 +408,9 @@ cdef class Mapper:
         query.seqCounter = seq_counter + i
         map.mapSingleQuerySeq[QueryMetaData_t[kseq_ptr_t, Map_t.MinVec_Type]](query, mappings[0], out[0])
 
-    cdef object _query_draft(self, object contigs):
+    # --- Methods ------------------------------------------------------------
+
+    cdef list _query_draft(self, object contigs):
         """Query the sketcher for the given contigs.
 
         Adapted from the ``skch::Map::mapQuery`` method in ``computeMap.hpp``.
@@ -490,7 +508,7 @@ cdef class Mapper:
                 ))
         return hits
 
-    def query_draft(self, object contigs):
+    cpdef list query_draft(self, object contigs):
         """query_draft(self, contigs)\n--
 
         Query the mapper for a complete genome.
@@ -511,7 +529,7 @@ cdef class Mapper:
         # delegate to C code
         return self._query_draft(contigs)
 
-    def query_genome(self, object sequence):
+    cpdef list query_genome(self, object sequence):
         """query_genome(self, sequence)\n--
 
         Query the mapper for a complete genome.
