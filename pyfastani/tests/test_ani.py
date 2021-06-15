@@ -11,7 +11,7 @@ FASTANI_PATH = os.path.join(PROJECT_PATH, "vendor", "FastANI")
 ECOLI = os.path.join(FASTANI_PATH, "data", "Escherichia_coli_str_K12_MG1655.fna")
 SFLEXNERI = os.path.join(FASTANI_PATH, "data", "Shigella_flexneri_2a_01.fna")
 
-class _TestMapper(object):
+class _TestANI(object):
 
     def _load_fasta():
         pass
@@ -23,11 +23,12 @@ class _TestMapper(object):
         # $ ./fastANI -q data/Shigella_flexneri_2a_01.fna -r data/Escherichia_coli_str_K12_MG1655.fna
         # data/Shigella_flexneri_2a_01.fna data/Escherichia_coli_str_K12_MG1655.fna 97.7507 1303 1608
 
-        mapper = pyfastani.Mapper()
+        sketch = pyfastani.Sketch()
 
         ref = self._load_fasta(ECOLI)
-        mapper.add_genome("Escherichia_coli_str_K12_MG1655", self._get_sequence(ref[0]))
-        mapper.index()
+        sketch.add_genome("Escherichia_coli_str_K12_MG1655", self._get_sequence(ref[0]))
+
+        mapper = sketch.index()
 
         contigs = self._load_fasta(SFLEXNERI)
         hits = mapper.query_draft(map(self._get_sequence, contigs))
@@ -46,11 +47,12 @@ class _TestMapper(object):
         # $ cat fastani.txt
         # data/Escherichia_coli_str_K12_MG1655.fna	data/Shigella_flexneri_2a_01.fna	97.664	1322	1547
 
-        mapper = pyfastani.Mapper()
+        sketch = pyfastani.Sketch()
 
         contigs = self._load_fasta(SFLEXNERI)
-        mapper.add_draft("Shigella_flexneri_2a_01", map(self._get_sequence, contigs))
-        mapper.index()
+        sketch.add_draft("Shigella_flexneri_2a_01", map(self._get_sequence, contigs))
+
+        mapper = sketch.index()
 
         query = self._load_fasta(ECOLI)
         hits = mapper.query_genome(self._get_sequence(query[0]))
@@ -62,7 +64,7 @@ class _TestMapper(object):
         self.assertAlmostEqual(hits[0].identity, 97.664, places=4)
 
 
-class TestMapper(_TestMapper, unittest.TestCase):
+class TestANI(_TestANI, unittest.TestCase):
 
     def _load_fasta(self, path):
         return list(minifasta.parse(path))
@@ -77,7 +79,7 @@ except ImportError:
     skbio_io = None
 
 @unittest.skipUnless(skbio_io, "Scikit-bio is required for this test suite")
-class TestMapperSkbio(_TestMapper, unittest.TestCase):
+class TestANISkbio(_TestANI, unittest.TestCase):
 
     def _load_fasta(self, path):
         return list(skbio_io.read(path, "fasta"))
@@ -91,7 +93,7 @@ except ImportError:
     Bio = None
 
 @unittest.skipUnless(Bio, "Biopython is required for this test suite")
-class TestMapperBiopython(_TestMapper, unittest.TestCase):
+class TestANIBiopython(_TestANI, unittest.TestCase):
 
     def _load_fasta(self, path):
         return list(Bio.SeqIO.parse(path, "fasta"))

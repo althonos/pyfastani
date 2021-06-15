@@ -6,6 +6,7 @@
 # --- C imports --------------------------------------------------------------
 
 cimport libcpp11.chrono
+from cpython cimport PyObject
 from libc.limits cimport INT_MAX
 from libc.stdint cimport uint64_t
 from libc.stdlib cimport malloc, realloc, free
@@ -67,14 +68,14 @@ cdef void upper(unsigned char[::1] seq):
 
 # --- Cython classes ---------------------------------------------------------
 
-cdef class Mapper:
-    """A genome mapper using MashMap to compute whole-genome similarity.
+cdef class Sketch:
+    """An index computing minimizers over the reference genomes.
     """
 
     cdef size_t           _counter
     cdef Sketch_t*        _sk
-    cdef bool             _indexed
     cdef vector[uint64_t] _lengths
+    cdef list             _names
     cdef Parameters_t     _param
 
     # --- Magic methods ------------------------------------------------------
@@ -155,8 +156,9 @@ cdef class Mapper:
             self._param.referenceSize
         )
 
-        # reinitialize bookkeeping values
-        self._indexed = True
+        # initialize bookkeeping values
+        self._names = []
+        self._lengths = vector[uint64_t]()
         self._counter = 0
 
     def __dealloc__(self):
@@ -180,17 +182,13 @@ cdef class Mapper:
 
     @property
     def names(self):
-        """`list` of `str`: The names of the sequences currently stored.
+        """`list` of `str`: The names of the sequences currently sketched.
         """
-        assert self._sk != nullptr
-        return [
-            contig_info.name.decode("utf-8")
-            for contig_info in self._sk.metadata
-        ]
+        return self._names[:]
 
     # --- Methods (adding references) ----------------------------------------
 
-    cdef int _add_draft(self, bytes name, object contigs) except 1:
+    cdef int _add_draft(self, object name, object contigs) except 1:
         """Add a draft genome to the sketcher.
 
         Adapted from the ``skch::Sketch::build`` method in ``winSketch.hpp``
@@ -224,9 +222,10 @@ cdef class Mapper:
 
             # store the contig name and size
             # (we just use the same name for all contigs)
-            info.name = string(name)
-            info.len = seq.shape[0]
-            self._sk.metadata.push_back(info)
+            # <-- actually useless, only useful for reporting
+            # info.name = string(name)
+            # info.len = seq.shape[0]
+            # self._sk.metadata.push_back(info)
 
             # check the sequence is large enough to compute minimizers
             if seq.shape[0] >= param.windowSize and seq.shape[0] >= param.kmerSize:
@@ -256,19 +255,18 @@ cdef class Mapper:
             # compute the genome length with respect to the fragment length
             seql_total += (seq.shape[0] // param.minReadLength) * param.minReadLength
 
-            # the Sketch will need to be reindexed since we added a new sequence
+            # record the number of contigs currently stored
             self._counter += 1
-            self._indexed = False
 
         # record the reference genome name and total length
-        self._param.refSequences.push_back(<string> name)
+        self._names.append(name)
         self._lengths.push_back(seql_total)
 
         # record the number of contigs in this genome
         self._sk.sequencesByFileInfo.push_back(self._counter)
 
-    def add_draft(self, str name, object contigs):
-        """add_draft(name, contigs)\n--
+    cdef Sketch add_draft(self, object name, object contigs):
+        """add_draft(self, name, contigs)\n--
 
         Add a reference draft genome to the sketcher.
 
@@ -276,19 +274,25 @@ cdef class Mapper:
         although `Mapper.add_genome` is easier to use in that case.
 
         Arguments:
-            name (`str`): The name of the genome to add.
+            name (`object`): The name of the genome to add. When a reference
+                matches this query genome, ``name`` will be exposed as the
+                `Hit.name` attribute of the corresponding hit.
             contigs (iterable of `str` or `bytes`): The contigs of the genome.
 
-        Note:
+        Returns:
+            `Sketch`: the object itself, for method chaining.
+
+        Hint:
             Contigs smaller than the window size and the k-mer size will
             be skipped.
 
         """
         # delegate to the C code
-        self._add_draft(name.encode("utf-8"), contigs)
+        self._add_draft(name, contigs)
+        return self
 
-    def add_genome(self, str name, object sequence):
-        """add_genome(name, sequence)\n--
+    cdef Sketch add_genome(self, object name, object sequence):
+        """add_genome(self, name, sequence)\n--
 
         Add a reference genome to the sketcher.
 
@@ -296,45 +300,78 @@ cdef class Mapper:
         complete (i.e. only contains a single contig).
 
         Arguments:
-            name (`str`): The name of the genome to add.
+            name (`object`): The name of the genome to add. When a reference
+                matches this query genome, ``name`` will be exposed as the
+                `Hit.name` attribute of the corresponding hit.
             sequence (`str` or `bytes`): The sequence of the genome.
 
-        Note:
+        Returns:
+            `Sketch`: the object itself, for method chaining.
+
+        Hint:
             Sequence must be larger than the window size and the k-mer size
             to be sketched, otherwise no minifiers will be computed.
 
         """
         # delegate to the C code
-        self._add_draft(name.encode("utf-8"), (sequence,))
+        self._add_draft(name, (sequence,))
+        return self
 
     # --- Methods (indexing) -------------------------------------------------
 
-    def index(self):
+    cpdef Mapper index(self):
         """index(self)\n--
 
-        Build the index for fast lookups using minimizer table.
+        Index the reference genomes for fast lookups using the minimizers.
+
+        Once all the reference sequences have been added to the `Sketch`,
+        use this method to create an efficient mapper, dropping the most
+        common minifiers among the reference sequences.
+
+        Returns:
+            `~pyfastani.Mapper`: An indexed mapper that can be used
+            for fast querying.
+
+        Note:
+            Calling this method will effectively transfer ownership of
+            the data to the `Mapper`, and reset the internals of this
+            `Sketch`. It will be essentially cleared, but should remain
+            usable.
 
         """
-        if not self._indexed:
-            # clear the maps in case we are rebuilding over a previous index
-            self._sk.minimizerPosLookupIndex.clear()
-            self._sk.minimizerFreqHistogram.clear()
-            self._sk.freqThreshold = INT_MAX
-            # compute the index and the frequency histogram
-            self._sk.index()
-            self._sk.computeFreqHist()
-            # mark the sketch as indexed
-            self._indexed = True
+        # compute the index and the frequency histogram
+        self._sk.index()
+        self._sk.computeFreqHist()
 
-    def is_indexed(self):
-        """is_indexed(self)\n--
+        # create the Mapper for this Sketch
+        cdef Mapper mapper = Mapper.__new__(Mapper)
+        mapper._param = self._param # copy params
+        mapper._sk = self._sk
+        mapper._names = self._names
+        mapper._lengths.swap(self._lengths)
 
-        Check whether or not this `Mapper` object has been indexed.
+        # reset the current sketch
+        self._names = []
+        self._sk = new Sketch_t(self._param)
 
-        """
-        return self._indexed
+        # return the new mapper
+        return mapper
 
-    # --- Methods (querying) -------------------------------------------------
+
+cdef class Mapper:
+    """A genome mapper using Murmur3 hashes and k-mers to compute ANI.
+    """
+
+    cdef Sketch_t*        _sk
+    cdef vector[uint64_t] _lengths
+    cdef list             _names
+    cdef Parameters_t     _param
+
+    def __cinit__(self):
+        self._sk = NULL
+
+    def __dealloc__(self):
+        del self._sk
 
     @staticmethod
     cdef void _query_fragment(
@@ -441,12 +478,12 @@ cdef class Mapper:
         # build and return the list of hits
         for res in results:
             assert res.refGenomeId < self._lengths.size()
-            assert res.refGenomeId < self._param.refSequences.size()
+            assert res.refGenomeId < len(self._names)
             min_length = min(seql, self._lengths[res.refGenomeId])
             shared_length = res.countSeq * p.minReadLength
             if shared_length >= min_length * p.minFraction:
                 hits.append(Hit(
-                    name=self._param.refSequences[res.refGenomeId].decode("utf-8"),
+                    name=self._names[res.refGenomeId],
                     identity=res.identity,
                     matches=res.countSeq,
                     fragments=res.totalQueryFragments,
@@ -499,12 +536,12 @@ cdef class Mapper:
 cdef class Hit:
     """A single hit found when querying the mapper with a genome.
     """
-    cdef readonly str     name
+    cdef readonly object  name
     cdef readonly seqno_t matches
     cdef readonly seqno_t fragments
     cdef readonly float   identity
 
-    def __init__(self, str name, float identity, seqno_t matches, seqno_t fragments):
+    def __init__(self, object name, float identity, seqno_t matches, seqno_t fragments):
         """__init__(self, name, identity, matches, fragments)\n--
 
         Create a new `Hit` instance with the given parameters.
