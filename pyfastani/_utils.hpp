@@ -19,4 +19,14 @@ extern int omp_get_num_threads(void);
 
 typedef kseq_t* kseq_ptr_t;
 
+inline int complement(int base) {
+    switch (base) {
+        case 'A': return 'T';
+        case 'T': return 'A';
+        case 'C': return 'G';
+        case 'G': return 'C';
+        default: return base;
+    }
+}
+
 #endif

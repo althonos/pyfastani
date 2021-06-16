@@ -7,10 +7,14 @@
 
 cimport libcpp11.chrono
 from cpython cimport PyObject
+from libc.string cimport memcpy
+from libc.stdio cimport printf
 from libc.limits cimport INT_MAX
 from libc.stdint cimport uint64_t
 from libc.stdlib cimport malloc, realloc, free
 from libcpp cimport bool, nullptr
+from libcpp.deque cimport deque
+from libcpp.utility cimport pair
 from libcpp.functional cimport function
 from libcpp.string cimport string
 from libcpp.unordered_map cimport unordered_map
@@ -23,26 +27,34 @@ from fastani.cgi.compute_core_identity cimport computeCGI
 from fastani.cgi.cgid_types cimport CGI_Results
 from fastani.map cimport base_types
 from fastani.map.compute_map cimport Map as Map_t
-from fastani.map.common_func cimport addMinimizers
+from fastani.map.common_func cimport addMinimizers, getHash
 from fastani.map.map_parameters cimport Parameters as Parameters_t
 from fastani.map.map_stats cimport recommendedWindowSize
 from fastani.map.win_sketch cimport Sketch as Sketch_t
 from fastani.map.base_types cimport (
+    hash_t,
     seqno_t,
     ContigInfo as ContigInfo_t,
     MappingResultsVector_t,
+    MinimizerInfo as MinimizerInfo_t,
     QueryMetaData as QueryMetaData_t,
 )
 
 # HACK: we need kseq_t* as a template argument, which is not supported by
 #       Cython at the moment, so we just `typedef kseq_t* kseq_ptr_t` in
 #       an external C++ header to make Cython happy
-from _utils cimport kseq_ptr_t
+from _utils cimport kseq_ptr_t, toupper, complement
+from _unicode cimport *
 
 
 # --- Python imports ---------------------------------------------------------
 
 import warnings
+
+# --- Constants --------------------------------------------------------------
+
+DEF _MAX_KMER_SIZE = 2048
+MAX_KMER_SIZE = _MAX_KMER_SIZE
 
 
 # --- Cython helpers ---------------------------------------------------------
@@ -64,6 +76,91 @@ cdef void upper(unsigned char[::1] seq):
     for i in range(seq.shape[0]):
         if seq[i] >= b'a' and seq[i] <= b'z':
             seq[i] -= 32
+
+
+cdef void _read_seq(
+    int kind,
+    const void* data,
+    size_t i,
+    char* fwd,
+    char* bwd,
+    size_t length
+) nogil:
+    # copy sequence[i:i+length] into fwd and complement in bwd
+    cdef size_t j
+    cdef char nuc
+    for j in range(length):
+        nuc = toupper(<int> PyUnicode_READ(kind, data, i + j))
+        fwd[_MAX_KMER_SIZE + j] = nuc
+        bwd[_MAX_KMER_SIZE - j - 1] = complement(nuc)
+
+cdef int _add_minimizers(
+    vector[MinimizerInfo_t] &minimizer_index,
+    int     kind,
+    void*   data,
+    ssize_t slen,
+    int kmer_size,
+    int window_size,
+    seqno_t seq_counter,
+) nogil except 1:
+    """Add the minimizers for a single contig to the sketcher.
+
+    Adapted from the ``skch::commonFunc::addMinimizers`` method in
+    ``commonFunc.hpp`` to work without the ``kseq`` I/O.
+
+    """
+    cdef deque[pair[MinimizerInfo_t, uint64_t]] q
+    cdef void*                                  last
+    cdef size_t                                 j
+    cdef uint64_t                               i
+    cdef uint64_t                               current_window_id
+    cdef hash_t                                 hash_fwd
+    cdef hash_t                                 hash_bwd
+    cdef hash_t                                 current_kmer
+    cdef MinimizerInfo_t                        info
+    cdef char                                   fwd[_MAX_KMER_SIZE*2]
+    cdef char                                   bwd[_MAX_KMER_SIZE*2]
+    cdef char                                   nuc
+    cdef size_t                                 stride
+
+    # initial fill of the buffer for the sequence sliding window
+    # supporting any unicode sequence in canonical form (including
+    # byte buffers containing ASCII characters)
+    _read_seq(kind, data, 0, fwd, bwd, min(_MAX_KMER_SIZE, slen))
+
+    # process all windows of width `kmer_size` in the input sequence
+    for i in range(slen - kmer_size + 1):
+        # if reaching the end of the sliding window, slide buffer
+        # left, and read new block in right side
+        if i % _MAX_KMER_SIZE == 0:
+            memcpy(&fwd[0], &fwd[_MAX_KMER_SIZE], _MAX_KMER_SIZE)
+            memcpy(&bwd[_MAX_KMER_SIZE], &bwd[0], _MAX_KMER_SIZE)
+            _read_seq(kind, data, i + _MAX_KMER_SIZE, fwd, bwd, min(_MAX_KMER_SIZE, slen - i))
+        # compute forward hash
+        hash_fwd = getHash(<const char*> &fwd[i % _MAX_KMER_SIZE], kmer_size)
+        hash_bwd = getHash(<const char*> &bwd[2*_MAX_KMER_SIZE - i % _MAX_KMER_SIZE - kmer_size], kmer_size)
+        # only record asymmetric k-mers
+        if hash_bwd != hash_fwd:
+            # record window size for the minimizer
+            current_window_id = i - window_size + 1
+            # Take minimum value of kmer and its reverse complement
+            current_kmer = min(hash_fwd, hash_bwd)
+            # If front minimum is not in the current window, remove it
+            while not q.empty() and q.front().second <= i - window_size:
+                q.pop_front()
+            # hashes less than equal to current_k;er can be discarded
+            while not q.empty() and q.back().first.hash >= current_kmer:
+                q.pop_back()
+            # push current_kmer and position to back of the queue
+            info.hash = current_kmer
+            info.seqId = seq_counter
+            info.wpos = 0
+            q.push_back(pair[MinimizerInfo_t, uint64_t](info, i))
+            # select the minimizer from Q and put into index
+            if current_window_id >= 0:
+                if minimizer_index.empty() or minimizer_index.back() != q.front().first:
+                    q.front().first.wpos = current_window_id
+                    minimizer_index.push_back(q.front().first)
 
 
 # --- Cython classes ---------------------------------------------------------
@@ -105,13 +202,14 @@ cdef class Sketch:
         double percentage_identity=80.0,
         unsigned int reference_size=5_000_000,
     ):
-        """__init__(*, k=16, fragment_length=3000, minimum_fraction=0.2, p_value=1e-03, percentage_identity=80, reference_size=5000000)\n--
+        f"""__init__(*, k=16, fragment_length=3000, minimum_fraction=0.2, p_value=1e-03, percentage_identity=80, reference_size=5000000)\n--
 
-        Create a new FastANI sequence mapper.
+        Create a new FastANI sequence sketch.
 
         Keyword Arguments:
             k (`int`): The size of the k-mers. FastANI authors recommend
-                a size of at most 16, but any positive number should work.
+                a size of at most 16, but any positive number below up to
+                `pyfastani.MAX_KMER_SIZE` will work.
             fragment_length (`int`): The lengths the blocks should have
                 when splitting the query. Queries smaller than this number
                 won't be processed.
@@ -136,10 +234,14 @@ cdef class Sketch:
             raise ValueError(f"p_value must be positive, got {p_value!r}")
         if percentage_identity > 100 or percentage_identity < 0:
             raise ValueError(f"percentage_identity must be between 0 and 100, got {percentage_identity!r}")
-        if k > 16:
+        if k <= 0:
+            raise ValueError(f"k must be strictly positive, got {k!r}")
+        elif k > _MAX_KMER_SIZE:
+            raise BufferError(f"k must be smaller than {_MAX_KMER_SIZE}, got {k}")
+        elif k > 16:
             warnings.warn(
+                f"Using k-mer size greater than 16 ({k!r}), accuracy will be degraded.",
                 UserWarning,
-                f"Using k-mer size greater than 16 ({k!r}), accuracy of the results is not guaranteed."
             )
 
         # store parameters
@@ -193,63 +295,69 @@ cdef class Sketch:
         """
         assert self._sk != nullptr
 
+        cdef size_t                   total  = 0
+        cdef Parameters_t*            param  = &self._param
         cdef object                   contig
-        cdef const unsigned char[::1] seq
         cdef kseq_t                   kseq
-        cdef size_t                   seql_total = 0
-        cdef Parameters_t*            param      = &self._param
+
+        # variables to index the contig as text or bytes
+        cdef const unsigned char[::1] view
+        cdef int                      kind
+        cdef void*                    data
+        cdef ssize_t                  slen
+
 
         for contig in contigs:
-            # encode the sequence if needed
-            if isinstance(contig, str):
-                contig = contig.encode("ascii")
-            # make sure the sequence is uppercase, otherwise a `makeUpperCase`
-            # is going to write in our read-only buffer in `addMinimizers`
-            if not isupper(contig):
-                warnings.warn(
-                    UserWarning,
-                    "Contig contains lowercase characters, reallocating."
-                )
-                contig = bytearray(contig)
-                upper(contig)
 
-            # get a memory view of the sequence
-            seq = contig
+            # get a way to read each letter of the contig,
+            # independently of it being `str`, `bytes`, `bytearray`, etc.
+            if isinstance(contig, str):
+                # make sure the unicode string is in canonical form,
+                # --> won't be needed anymore in Python 3.12
+                IF SYS_VERSION_INFO_MAJOR <= 3 and SYS_VERSION_INFO_MINOR < 12:
+                    PyUnicode_READY(contig)
+                # get kind and data for efficient indexing
+                kind = PyUnicode_KIND(contig)
+                data = PyUnicode_DATA(contig)
+                slen = PyUnicode_GET_LENGTH(contig)
+            else:
+                view = contig
+                kind = PyUnicode_1BYTE_KIND
+                slen = view.shape[0]
+                if slen != 0:
+                    data = <void*> &view[0]
 
             # check the sequence is large enough to compute minimizers
-            if seq.shape[0] >= param.windowSize and seq.shape[0] >= param.kmerSize:
+            if slen >= param.windowSize and slen >= param.kmerSize:
+                assert param.alphabetSize == 4 # assumed in `_add_minimizers`
                 with nogil:
-                    # WARNING: Normally kseq_t owns the buffer, but here we just give
-                    #          a view to avoid reallocation if possible. However,
-                    #          `addMinimizers` will always attempt to make the
-                    #          sequence uppercase, so it should be checked in
-                    #          advance that the sequence is already uppercase.
-                    kseq.seq.l = kseq.seq.m = seq.shape[0]
-                    kseq.seq.s = <char*> <const unsigned char*> &seq[0]
-                    # compute the minimizers
-                    addMinimizers(
+                    _add_minimizers(
                         self._sk.minimizerIndex,
-                        &kseq,
+                        kind,
+                        data,
+                        slen,
                         param.kmerSize,
                         param.windowSize,
-                        param.alphabetSize,
-                        self._counter
+                        self._counter,
                     )
             else:
-                warnings.warn(UserWarning, (
+                warnings.warn(
+                  (
                     "Sketch received a short contig relative to parameters, "
                     "minimizers will not be added."
-                ))
+                  ),
+                  UserWarning
+                )
 
             # compute the genome length with respect to the fragment length
-            seql_total += (seq.shape[0] // param.minReadLength) * param.minReadLength
+            total += (slen // param.minReadLength) * param.minReadLength
 
             # record the number of contigs currently stored
             self._counter += 1
 
         # record the reference genome name and total length
         self._names.append(name)
-        self._lengths.push_back(seql_total)
+        self._lengths.push_back(total)
 
         # record the number of contigs in this genome
         self._sk.sequencesByFileInfo.push_back(self._counter)
@@ -438,8 +546,8 @@ cdef class Mapper:
             # is going to write in our read-only buffer in `addMinimizers`
             if not isupper(contig):
                 warnings.warn(
+                    "Sequence contains lowercase characters, reallocating.",
                     UserWarning,
-                    "Sequence contains lowercase characters, reallocating."
                 )
                 contig = bytearray(contig)
                 upper(contig)
@@ -467,10 +575,13 @@ cdef class Mapper:
                 # record the number of fragments
                 total_fragments += fragment_count
             else:
-                warnings.warn(UserWarning, (
-                    "Mapper received a short sequence relative to parameters, "
-                    "mapping will not be computed."
-                ))
+                warnings.warn(
+                    (
+                        "Mapper received a short sequence relative to parameters, "
+                        "mapping will not be computed."
+                    ),
+                    UserWarning,
+                )
 
         # compute core genomic identity after successful mapping
         with nogil:

@@ -20,4 +20,6 @@ ZEXTERN int ZEXPORT gzread(gzFile file, void* buf, unsigned int len) {
     return 0;
 }
 
-ZEXTERN int ZEXPORT gzclose(gzFile file) {}
+ZEXTERN int ZEXPORT gzclose(gzFile file) {
+    return 0;
+}

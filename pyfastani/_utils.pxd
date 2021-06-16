@@ -7,6 +7,10 @@ from fastani.map.map_parameters cimport Parameters
 from fastani.map.win_sketch cimport Sketch
 
 
+cdef extern from "<ctype.h>" nogil:
+    int toupper(int)
+
+
 cdef extern from "<zlib.h>" nogil:
     cdef struct gzFile_s:
         pass
@@ -25,3 +29,5 @@ cdef extern from "_utils.hpp" nogil:
     int omp_get_num_threads()
 
     ctypedef kseq_t* kseq_ptr_t
+
+    int complement(int) 

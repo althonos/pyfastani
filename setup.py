@@ -154,8 +154,17 @@ class build_ext(_build_ext):
             raise RuntimeError("Cython is required to run `build_ext` command") from cythonize
 
         # use debug directives with Cython if building in debug mode
-        cython_args = {"include_path": ["include", "pyfastani"], "compiler_directives": {}}
-        cython_args["compile_time_env"] = {"FASTANI_PRIVATE_ACCESS": 1}
+        cython_args = {
+            "include_path": ["include", "pyfastani"],
+            "compiler_directives": {},
+            "compile_time_env": {
+                "FASTANI_PRIVATE_ACCESS": 1,
+                "SYS_IMPLEMENTATION_NAME": sys.implementation.name,
+                "SYS_VERSION_INFO_MAJOR": sys.version_info.major,
+                "SYS_VERSION_INFO_MINOR": sys.version_info.minor,
+                "SYS_VERSION_INFO_MICRO": sys.version_info.micro,
+            }
+        }
         if self.force:
             cython_args["force"] = True
         if self.debug:
