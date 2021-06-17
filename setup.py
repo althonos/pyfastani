@@ -245,7 +245,7 @@ class clean(_clean):
 extensions = [
     Extension(
         "pyfastani._fastani",
-        [os.path.join("pyfastani", x) for x in ("_utils.cpp", "_fastani.pyx")],
+        [os.path.join("pyfastani", x) for x in ("_utils.cpp", "omp.cpp", "_fastani.pyx")],
         language="c++",
         include_dirs=["include", "pyfastani"],
         define_macros=[("USE_BOOST", 1)],

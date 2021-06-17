@@ -20,11 +20,8 @@ recursive-include vendor/FastANI/src *.h *.hpp *.md
 recursive-include include   *.pxd
 
 # Cython sources
-recursive-include pyfastani *.pyx *.h *.py
-include pyfastani/_utils.cpp
-include pyfastani/_utils.hpp
-include pyfastani/_utils.pxd
+recursive-include pyfastani *.pyx *.h *.c *.py *.cpp *.hpp
+exclude pyfastani/_fastani.cpp
 
 # test files
 include pyfastani/tests/requirements.txt
-

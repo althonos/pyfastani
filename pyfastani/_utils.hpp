@@ -12,13 +12,23 @@
 #include "map/include/base_types.hpp"
 #include "map/include/winSketch.hpp"
 
-// not needed anywhere except in `cgi::correctRefGenomeIds`
-// so we can just patch them
-extern int omp_get_thread_num(void);
-extern int omp_get_num_threads(void);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-typedef kseq_t* kseq_ptr_t;
+// compatibility layer with function requiring a whole `kseq_t` struct
+// just to read the length from it
+typedef struct {
+    size_t l;
+} minikstring_t;
 
+typedef struct {
+    minikstring_t seq;
+} minikseq_t;
+
+typedef minikseq_t* minikseq_ptr_t;
+
+// efficient nucleotide complement with a lookup table
 static const char COMPLEMENT_LOOKUP[128] = {
     '\x00', '\x01', '\x02', '\x03', '\x04', '\x05', '\x06', '\x07',
     '\x08', '\t',   '\n',   '\x0', '\x0c', '\r',   '\x0e', '\x0f',
@@ -42,4 +52,7 @@ inline char complement(char base) {
     return COMPLEMENT_LOOKUP[(size_t) (base & 0x7F)];
 }
 
-#endif
+#ifdef __cplusplus
+}
+#endif // ifdef __cplusplus
+#endif // ifdef __UTILS_HPP

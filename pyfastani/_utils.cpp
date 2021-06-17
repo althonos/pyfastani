@@ -1,3 +1,4 @@
+#include "omp.h"
 #include "_utils.hpp"
 
 int omp_get_thread_num(void) {

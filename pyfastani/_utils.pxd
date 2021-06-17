@@ -34,9 +34,12 @@ cdef extern from "<zlib.h>" nogil:
 
 cdef extern from "_utils.hpp" nogil:
 
-    int omp_get_thread_num()
-    int omp_get_num_threads()
+    ctypedef struct minikstring_t:
+        size_t l
 
-    ctypedef kseq_t* kseq_ptr_t
+    ctypedef struct minikseq_t:
+        minikstring_t seq
+
+    ctypedef minikseq_t* minikseq_ptr_t
 
     int complement(int)

@@ -22,7 +22,7 @@ from libcpp.vector cimport vector
 from libcpp11.fstream cimport ofstream
 
 cimport fastani.map.map_stats
-from kseq cimport kseq_t, kstring_t
+# from kseq cimport kseq_t, kstring_t
 from fastani.cgi.compute_core_identity cimport computeCGI
 from fastani.cgi.cgid_types cimport CGI_Results
 from fastani.map cimport base_types
@@ -46,7 +46,7 @@ from fastani.map.base_types cimport (
 # HACK: we need kseq_t* as a template argument, which is not supported by
 #       Cython at the moment, so we just `typedef kseq_t* kseq_ptr_t` in
 #       an external C++ header to make Cython happy
-from _utils cimport kseq_ptr_t, toupper, complement, distance
+from _utils cimport minikseq_t, minikseq_ptr_t, toupper, complement, distance
 from _unicode cimport *
 
 
@@ -496,15 +496,18 @@ cdef class Mapper:
         const Parameters_t& param,
         const Sketch_t& ref_sketch,
         Map_t& map,
-
         const int kind,
         const void* data,
         const ssize_t slen,
-
-        QueryMetaData_t[kseq_ptr_t, vector[MinimizerInfo_t]]& query,
-
+        QueryMetaData_t[minikseq_ptr_t, vector[MinimizerInfo_t]]& query,
         vector[Map_t.L1_candidateLocus_t]& l1_mappings,
     ) nogil:
+        """Compute L1 mappings for the given sequence block.
+
+        Adapted from the `skch::Map::doL1Mapping` in `computeMap.hpp` to avoid
+        reading from a `kseq_t`, and support indexing a Python Unicode string.
+
+        """
         cdef vector[MinimizerMetaData_t] seed_hits_l1
         cdef vector[MinimizerInfo_t].iterator uniq_end_iter
         cdef vector[MinimizerInfo_t].iterator it
@@ -548,44 +551,33 @@ cdef class Mapper:
         const Parameters_t& param,
         const Sketch_t& sketch,
         Map_t& map,
-
         const int i,
         const seqno_t seq_counter,
-
         const int kind,
         const void* data,
         const ssize_t slen,
-
+        const size_t stride,
         MappingResultsVector_t& l2_mappings
     ) nogil:
-        cdef size_t                                         offset
-        cdef size_t                                         stride
-        cdef kseq_t                                         kseq
-        cdef QueryMetaData_t[kseq_ptr_t, Map_t.MinVec_Type] query
-        cdef vector[Map_t.L1_candidateLocus_t]              l1_mappings
+        cdef minikseq_t                                         kseq
+        cdef QueryMetaData_t[minikseq_ptr_t, Map_t.MinVec_Type] query
+        cdef vector[Map_t.L1_candidateLocus_t]                  l1_mappings
 
         query.kseq = &kseq
-        query.kseq.seq.s = NULL # <char*> &seq[i * min_read_length]
-        query.kseq.seq.l = query.kseq.seq.m = param.minReadLength
+        #query.kseq.seq.s = NULL # <char*> &seq[i * min_read_length]
+        query.kseq.seq.l = param.minReadLength
         query.seqCounter = seq_counter + i
 
-        offset = i * param.minReadLength
-        if kind == PyUnicode_1BYTE_KIND:
-            stride = sizeof(Py_UCS1)
-        elif kind == PyUnicode_2BYTE_KIND:
-            stride = sizeof(Py_UCS2)
-        else:
-            stride = sizeof(Py_UCS4)
-
         Mapper._do_l1_mappings(
+            # classes with configuration
             param,
             sketch,
             map,
-
+            # start of the i-th fragment
             kind,
-            data + offset * stride,
+            data + (i * param.minReadLength) * stride,
             param.minReadLength,
-
+            # outputs
             query,
             l1_mappings,
         )
@@ -619,6 +611,7 @@ cdef class Mapper:
         cdef int                      kind
         cdef void*                    data
         cdef ssize_t                  slen
+        cdef size_t                   stride
         # core genomic identity results
         cdef MappingResultsVector_t   final_mappings
         cdef vector[CGI_Results]      results
@@ -645,12 +638,19 @@ cdef class Mapper:
                 kind = PyUnicode_KIND(contig)
                 data = PyUnicode_DATA(contig)
                 slen = PyUnicode_GET_LENGTH(contig)
+                if kind == PyUnicode_1BYTE_KIND:
+                    stride = sizeof(Py_UCS1)
+                elif kind == PyUnicode_2BYTE_KIND:
+                    stride = sizeof(Py_UCS2)
+                else:
+                    stride = sizeof(Py_UCS4)
             else:
                 # attempt to view the contig as a buffer of contiguous bytes
                 view = contig
                 # pretend the bytes are an ASCII (UCS-1) encoded string
                 kind = PyUnicode_1BYTE_KIND
                 slen = view.shape[0]
+                stride = sizeof(Py_UCS1)
                 if slen != 0:
                     data = <void*> &view[0]
 
@@ -662,17 +662,19 @@ cdef class Mapper:
                     # map the blocks
                     for i in range(fragment_count):
                         Mapper._query_fragment(
+                            # classes with configuration
                             param[0],
                             sketch[0],
                             map[0],
-
+                            # position in query
                             i,
                             total_fragments,
-
+                            # unicode sequence
                             kind,
                             data,
                             slen,
-
+                            stride,
+                            # result vector
                             final_mappings
                         )
                     # record the number of fragments
