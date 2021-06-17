@@ -64,7 +64,16 @@ class _TestANI(object):
         self.assertAlmostEqual(hits[0].identity, 97.664, places=4)
 
 
-class TestANI(_TestANI, unittest.TestCase):
+class TestANITest(_TestANI, unittest.TestCase):
+
+    def _load_fasta(self, path):
+        return list(minifasta.parse(path))
+
+    def _get_sequence(self, record):
+        return record.seq
+
+
+class TestANIBytes(_TestANI, unittest.TestCase):
 
     def _load_fasta(self, path):
         return list(minifasta.parse(path))
