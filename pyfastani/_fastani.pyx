@@ -78,14 +78,16 @@ cdef void upper(unsigned char[::1] seq):
             seq[i] -= 32
 
 
-cdef void _read_seq(
-    int kind,
+cdef void _read_nucl(
+    const int kind,
     const void* data,
-    size_t i,
+    const size_t i,
     char* fwd,
     char* bwd,
-    size_t length
+    const size_t length
 ) nogil:
+    """Read `length` characters of a nucleotide sequence into `fwd` and `bwd` buffers.
+    """
     # copy sequence[i:i+length] into fwd and complement in bwd
     cdef size_t j
     cdef char nuc
@@ -94,14 +96,15 @@ cdef void _read_seq(
         fwd[_MAX_KMER_SIZE + j] = nuc
         bwd[_MAX_KMER_SIZE - j - 1] = complement(nuc)
 
+
 cdef int _add_minimizers(
     vector[MinimizerInfo_t] &minimizer_index,
-    int     kind,
-    void*   data,
-    ssize_t slen,
-    int kmer_size,
-    int window_size,
-    seqno_t seq_counter,
+    const int kind,
+    const void* data,
+    const ssize_t slen,
+    const int kmer_size,
+    const int window_size,
+    const seqno_t seq_counter,
 ) nogil except 1:
     """Add the minimizers for a single contig to the sketcher.
 
@@ -126,7 +129,7 @@ cdef int _add_minimizers(
     # initial fill of the buffer for the sequence sliding window
     # supporting any unicode sequence in canonical form (including
     # byte buffers containing ASCII characters)
-    _read_seq(kind, data, 0, fwd, bwd, min(_MAX_KMER_SIZE, slen))
+    _read_nucl(kind, data, 0, fwd, bwd, min(_MAX_KMER_SIZE, slen))
 
     # process all windows of width `kmer_size` in the input sequence
     for i in range(slen - kmer_size + 1):
@@ -135,10 +138,10 @@ cdef int _add_minimizers(
         if i % _MAX_KMER_SIZE == 0:
             memcpy(&fwd[0], &fwd[_MAX_KMER_SIZE], _MAX_KMER_SIZE)
             memcpy(&bwd[_MAX_KMER_SIZE], &bwd[0], _MAX_KMER_SIZE)
-            _read_seq(kind, data, i + _MAX_KMER_SIZE, fwd, bwd, min(_MAX_KMER_SIZE, slen - i))
+            _read_nucl(kind, data, i + _MAX_KMER_SIZE, fwd, bwd, min(_MAX_KMER_SIZE, slen - i))
         # compute forward hash
-        hash_fwd = getHash(<const char*> &fwd[i % _MAX_KMER_SIZE], kmer_size)
-        hash_bwd = getHash(<const char*> &bwd[2*_MAX_KMER_SIZE - i % _MAX_KMER_SIZE - kmer_size], kmer_size)
+        hash_fwd = getHash(<char*> &fwd[i % _MAX_KMER_SIZE], kmer_size)
+        hash_bwd = getHash(<char*> &bwd[2*_MAX_KMER_SIZE - i % _MAX_KMER_SIZE - kmer_size], kmer_size)
         # only record asymmetric k-mers
         if hash_bwd != hash_fwd:
             # record window size for the minimizer
@@ -298,14 +301,12 @@ cdef class Sketch:
         cdef size_t                   total  = 0
         cdef Parameters_t*            param  = &self._param
         cdef object                   contig
-        cdef kseq_t                   kseq
 
         # variables to index the contig as text or bytes
         cdef const unsigned char[::1] view
         cdef int                      kind
         cdef void*                    data
         cdef ssize_t                  slen
-
 
         for contig in contigs:
 
@@ -321,7 +322,9 @@ cdef class Sketch:
                 data = PyUnicode_DATA(contig)
                 slen = PyUnicode_GET_LENGTH(contig)
             else:
+                # attempt to view the contig as a buffer of contiguous bytes
                 view = contig
+                # pretend the the bytes are an ASCII (UCS-1) encoded string
                 kind = PyUnicode_1BYTE_KIND
                 slen = view.shape[0]
                 if slen != 0:
