@@ -10,7 +10,7 @@ from cpython cimport PyObject
 from libc.string cimport memcpy
 from libc.stdio cimport printf
 from libc.limits cimport INT_MAX
-from libc.stdint cimport uint64_t
+from libc.stdint cimport int64_t, uint64_t
 from libc.stdlib cimport malloc, realloc, free
 from libcpp cimport bool, nullptr
 from libcpp.deque cimport deque
@@ -126,17 +126,16 @@ cdef int _add_minimizers(
     ``commonFunc.hpp`` to work without the ``kseq`` I/O.
 
     """
-    cdef deque[pair[MinimizerInfo_t, uint64_t]] q
-    cdef void*                                  last
-    cdef size_t                                 j
-    cdef uint64_t                               i
-    cdef uint64_t                               current_window_id
-    cdef hash_t                                 hash_fwd
-    cdef hash_t                                 hash_bwd
-    cdef hash_t                                 current_kmer
-    cdef MinimizerInfo_t                        info
-    cdef char                                   fwd[_MAX_KMER_SIZE*2]
-    cdef char                                   bwd[_MAX_KMER_SIZE*2]
+    cdef deque[pair[MinimizerInfo_t, int64_t]] q
+    cdef void*                                 last
+    cdef int64_t                               i
+    cdef int64_t                               current_window_id
+    cdef hash_t                                hash_fwd
+    cdef hash_t                                hash_bwd
+    cdef hash_t                                current_kmer
+    cdef MinimizerInfo_t                       info
+    cdef char                                  fwd[_MAX_KMER_SIZE*2]
+    cdef char                                  bwd[_MAX_KMER_SIZE*2]
 
     # initial fill of the buffer for the sequence sliding window
     # supporting any unicode sequence in canonical form (including
@@ -170,7 +169,7 @@ cdef int _add_minimizers(
             info.hash = current_kmer
             info.seqId = seq_counter
             info.wpos = 0
-            q.push_back(pair[MinimizerInfo_t, uint64_t](info, i))
+            q.push_back(pair[MinimizerInfo_t, int64_t](info, i))
             # select the minimizer from Q and put into index
             if current_window_id >= 0:
                 if minimizer_index.empty() or minimizer_index.back() != q.front().first:
