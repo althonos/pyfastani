@@ -167,14 +167,70 @@ cdef int _add_minimizers(
 
 # --- Cython classes ---------------------------------------------------------
 
-cdef class Sketch:
+
+cdef class _Parameterized:
+    """A base class for types wrapping a `skch::Parameters` C++ object.
+    """
+
+    # --- Attributes ---------------------------------------------------------
+
+    cdef Parameters_t _param
+
+    # --- Magic methods ------------------------------------------------------
+
+    def __cinit__(self):
+        self._param.threads = 1
+        self._param.reportAll = True
+        self._param.visualize = False
+        self._param.matrixOutput = False
+
+    # --- Properties ---------------------------------------------------------
+
+    @property
+    def k(self):
+        """`int`: The k-mer size used for sketching.
+        """
+        return self._param.kmerSize
+
+    @property
+    def window_size(self):
+        """`int`: The window size used for sketching.
+        """
+        return self._param.windowSize
+
+    @property
+    def fragment_length(self):
+        """`int`: The minimum read length to use for mapping.
+        """
+        return self._param.minReadLength
+
+    @property
+    def minimum_fraction(self):
+        """`float`: The minimum genome fraction required to trust ANI values.
+        """
+        return self._param.minFraction
+
+    @property
+    def percentage_identity(self):
+        """`float`: The identity threshold for similarity when estimating hits.
+        """
+        return self._param.percentageIdentity
+
+    @property
+    def p_value(self):
+        """`float`: The p-value threshold for similarity when estimating hits.
+        """
+        return self._param.p_value
+
+
+cdef class Sketch(_Parameterized):
     """An index computing minimizers over the reference genomes.
     """
 
     # --- Attributes ---------------------------------------------------------
 
     cdef Sketch_t*        _sk       # the internal Sketch_t
-    cdef Parameters_t     _param    # the internal Parameters_t (const)
+    # cdef Parameters_t     _param    # the internal Parameters_t (const)
     cdef size_t           _counter  # the number of contigs (not genomes)
     cdef vector[uint64_t] _lengths  # array mapping each genome to its length
     cdef list             _names    # list mapping each genome to its name
@@ -185,10 +241,7 @@ cdef class Sketch:
         # hardcode reporting parameters so that we can control
         # execution flow
         self._param.alphabetSize = 4
-        self._param.threads = 1
-        self._param.reportAll = True
-        self._param.visualize = False
-        self._param.matrixOutput = False
+
         # create a new Sketch with the parameters
         self._sk = new Sketch_t(self._param)
         # create a new list of names
@@ -199,10 +252,10 @@ cdef class Sketch:
         *,
         unsigned int k=16,
         unsigned int fragment_length=3000,
-        double minimum_fraction=0.2,
+        float minimum_fraction=0.2,
         double p_value=1e-03,
-        double percentage_identity=80.0,
-        unsigned int reference_size=5_000_000,
+        float percentage_identity=80.0,
+        uint64_t reference_size=5_000_000,
     ):
         f"""__init__(*, k=16, fragment_length=3000, minimum_fraction=0.2, p_value=1e-03, percentage_identity=80, reference_size=5000000)\n--
 
@@ -475,7 +528,7 @@ cdef class Sketch:
         return mapper
 
 
-cdef class Mapper:
+cdef class Mapper(_Parameterized):
     """A genome mapper using Murmur3 hashes and k-mers to compute ANI.
     """
 
@@ -484,7 +537,7 @@ cdef class Mapper:
     cdef Sketch_t*        _sk
     cdef vector[uint64_t] _lengths
     cdef list             _names
-    cdef Parameters_t     _param
+    # cdef Parameters_t     _param
 
     # --- Magic methods ------------------------------------------------------
 

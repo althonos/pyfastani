@@ -24,12 +24,14 @@ class TestSketch(unittest.TestCase):
     def test_reinit(self):
         """Check that calling `__init__` more than once does not crash.
         """
-        sketch = pyfastani.Sketch()
-        sketch.add_genome("test", "ATGC"*1000)
+        sketch = pyfastani.Sketch(fragment_length=100)
+        sketch.add_genome("test", "ATGC"*100)
         self.assertEqual(sketch.names, ["test"])
+        self.assertEqual(sketch.fragment_length, 100)
 
-        sketch.__init__()
+        sketch.__init__(fragment_length=200)
         self.assertEqual(sketch.names, [])
+        self.assertEqual(sketch.fragment_length, 200)
 
     def test_add_draft_warnings(self):
         """Check that `Sketch.add_draft` raises warnings as expected.
