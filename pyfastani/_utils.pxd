@@ -34,12 +34,6 @@ cdef extern from "<zlib.h>" nogil:
 
 cdef extern from "_utils.hpp" nogil:
 
-    ctypedef struct minikstring_t:
-        size_t l
-
-    ctypedef struct minikseq_t:
-        minikstring_t seq
-
-    ctypedef minikseq_t* minikseq_ptr_t
+    ctypedef kseq_t* kseq_ptr_t
 
     int complement(int)

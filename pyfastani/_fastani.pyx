@@ -22,7 +22,7 @@ from libcpp.vector cimport vector
 from libcpp11.fstream cimport ofstream
 
 cimport fastani.map.map_stats
-# from kseq cimport kseq_t, kstring_t
+from kseq cimport kseq_t, kstring_t
 from fastani.cgi.compute_core_identity cimport computeCGI
 from fastani.cgi.cgid_types cimport CGI_Results
 from fastani.map cimport base_types
@@ -46,7 +46,7 @@ from fastani.map.base_types cimport (
 # HACK: we need kseq_t* as a template argument, which is not supported by
 #       Cython at the moment, so we just `typedef kseq_t* kseq_ptr_t` in
 #       an external C++ header to make Cython happy
-from _utils cimport minikseq_t, minikseq_ptr_t, toupper, complement, distance
+from _utils cimport kseq_ptr_t, toupper, complement, distance
 from _unicode cimport *
 
 
@@ -552,7 +552,7 @@ cdef class Mapper(_Parameterized):
         const int kind,
         const void* data,
         const ssize_t slen,
-        QueryMetaData_t[minikseq_ptr_t, vector[MinimizerInfo_t]]& query,
+        QueryMetaData_t[kseq_ptr_t, vector[MinimizerInfo_t]]& query,
         vector[Map_t.L1_candidateLocus_t]& l1_mappings,
     ) nogil:
         """Compute L1 mappings for the given sequence block.
@@ -612,12 +612,12 @@ cdef class Mapper(_Parameterized):
         const size_t stride,
         MappingResultsVector_t& l2_mappings
     ) nogil:
-        cdef minikseq_t                                         kseq
-        cdef QueryMetaData_t[minikseq_ptr_t, Map_t.MinVec_Type] query
-        cdef vector[Map_t.L1_candidateLocus_t]                  l1_mappings
+        cdef kseq_t                                         kseq
+        cdef QueryMetaData_t[kseq_ptr_t, Map_t.MinVec_Type] query
+        cdef vector[Map_t.L1_candidateLocus_t]              l1_mappings
 
         query.kseq = &kseq
-        #query.kseq.seq.s = NULL # <char*> &seq[i * min_read_length]
+        query.kseq.seq.s = NULL
         query.kseq.seq.l = param.minReadLength
         query.seqCounter = seq_counter + i
 
@@ -760,7 +760,7 @@ cdef class Mapper(_Parameterized):
         for result in results:
             assert result.refGenomeId < self._lengths.size()
             assert result.refGenomeId < len(self._names)
-            min_length = min(slen, self._lengths[result.refGenomeId])
+            min_length = min(total_length, self._lengths[result.refGenomeId])
             shared_length = result.countSeq * param.minReadLength
             if shared_length >= min_length * param.minFraction:
                 hits.append(Hit(

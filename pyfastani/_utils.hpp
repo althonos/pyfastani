@@ -16,17 +16,8 @@
 extern "C" {
 #endif
 
-// compatibility layer with function requiring a whole `kseq_t` struct
-// just to read the length from it
-typedef struct {
-    size_t l;
-} minikstring_t;
-
-typedef struct {
-    minikstring_t seq;
-} minikseq_t;
-
-typedef minikseq_t* minikseq_ptr_t;
+// compatibility layer for Cython
+typedef kseq_t* kseq_ptr_t;
 
 // efficient nucleotide complement with a lookup table
 static const char COMPLEMENT_LOOKUP[128] = {
