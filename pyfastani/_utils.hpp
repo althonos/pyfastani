@@ -19,7 +19,7 @@ extern int omp_get_num_threads(void);
 
 typedef kseq_t* kseq_ptr_t;
 
-static int COMPLEMENT_LOOKUP[128] = {
+static const char COMPLEMENT_LOOKUP[128] = {
     '\x00', '\x01', '\x02', '\x03', '\x04', '\x05', '\x06', '\x07',
     '\x08', '\t',   '\n',   '\x0', '\x0c', '\r',   '\x0e', '\x0f',
     '\x10', '\x11', '\x12', '\x13', '\x14', '\x15', '\x16', '\x17',

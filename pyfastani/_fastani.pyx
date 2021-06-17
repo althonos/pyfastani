@@ -78,24 +78,38 @@ cdef void upper(unsigned char[::1] seq):
             seq[i] -= 32
 
 
-cdef void _read_nucl(
+cdef ssize_t _read_nucl(
     const int kind,
     const void* data,
-    const size_t i,
+    const ssize_t slen,
+    const ssize_t i,
     char* fwd,
     char* bwd,
-    const size_t length
-) nogil:
-    """Read `length` characters of a nucleotide sequence into `fwd` and `bwd` buffers.
+) nogil except -1:
+    """Read characters of a nucleotide sequence into `fwd` and `bwd` buffers.
+
+    Reads at most _MAX_KMER_SIZE characters, and returns the number of
+    characters read. ``i`` is the position of the first letter to read
+    in the string. Returns the number of characters read.
+
     """
-    # copy sequence[i:i+length] into fwd and complement in bwd
-    cdef size_t j
-    cdef char nuc
+    cdef ssize_t j
+    cdef ssize_t length
+    cdef char    nuc
+
+    if _MAX_KMER_SIZE <= slen - i:
+        length = _MAX_KMER_SIZE
+    elif i < slen:
+        length = slen - i
+    else:
+        length = 0
+
     for j in range(length):
         nuc = toupper(<int> PyUnicode_READ(kind, data, i + j))
         fwd[_MAX_KMER_SIZE + j] = nuc
         bwd[_MAX_KMER_SIZE - j - 1] = complement(nuc)
 
+    return length
 
 cdef int _add_minimizers(
     vector[MinimizerInfo_t] &minimizer_index,
@@ -123,13 +137,11 @@ cdef int _add_minimizers(
     cdef MinimizerInfo_t                        info
     cdef char                                   fwd[_MAX_KMER_SIZE*2]
     cdef char                                   bwd[_MAX_KMER_SIZE*2]
-    cdef char                                   nuc
-    cdef size_t                                 stride
 
     # initial fill of the buffer for the sequence sliding window
     # supporting any unicode sequence in canonical form (including
     # byte buffers containing ASCII characters)
-    _read_nucl(kind, data, 0, fwd, bwd, min(_MAX_KMER_SIZE, slen))
+    _read_nucl(kind, data, slen, 0, fwd, bwd)
 
     # process all windows of width `kmer_size` in the input sequence
     for i in range(slen - kmer_size + 1):
@@ -138,7 +150,7 @@ cdef int _add_minimizers(
         if i % _MAX_KMER_SIZE == 0:
             memcpy(&fwd[0], &fwd[_MAX_KMER_SIZE], _MAX_KMER_SIZE)
             memcpy(&bwd[_MAX_KMER_SIZE], &bwd[0], _MAX_KMER_SIZE)
-            _read_nucl(kind, data, i + _MAX_KMER_SIZE, fwd, bwd, min(_MAX_KMER_SIZE, slen - i))
+            _read_nucl(kind, data, slen, i + _MAX_KMER_SIZE, fwd, bwd)
         # compute forward hash
         hash_fwd = getHash(<char*> &fwd[i % _MAX_KMER_SIZE], kmer_size)
         hash_bwd = getHash(<char*> &bwd[2*_MAX_KMER_SIZE - i % _MAX_KMER_SIZE - kmer_size], kmer_size)

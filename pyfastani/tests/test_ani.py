@@ -1,4 +1,5 @@
 import os
+import sys
 import unittest
 
 import pyfastani
@@ -64,10 +65,12 @@ class _TestANI(object):
         self.assertAlmostEqual(hits[0].identity, 97.664, places=4)
 
 
-class TestANITest(_TestANI, unittest.TestCase):
+class TestANIString(_TestANI, unittest.TestCase):
 
     def _load_fasta(self, path):
-        return list(minifasta.parse(path))
+        with open(path) as f:
+            records = list(minifasta.parse(f))
+        return records
 
     def _get_sequence(self, record):
         return record.seq
@@ -76,7 +79,9 @@ class TestANITest(_TestANI, unittest.TestCase):
 class TestANIBytes(_TestANI, unittest.TestCase):
 
     def _load_fasta(self, path):
-        return list(minifasta.parse(path))
+        with open(path) as f:
+            records = list(minifasta.parse(f))
+        return records
 
     def _get_sequence(self, record):
         return record.seq.encode()
