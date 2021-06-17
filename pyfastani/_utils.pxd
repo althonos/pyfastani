@@ -7,8 +7,17 @@ from fastani.map.map_parameters cimport Parameters
 from fastani.map.win_sketch cimport Sketch
 
 
+cdef extern from *:
+    cppclass auto:
+        pass
+
+
 cdef extern from "<ctype.h>" nogil:
     int toupper(int)
+
+
+cdef extern from "<iterator>" namespace "std" nogil:
+    cdef ssize_t distance[I](I first, I last);
 
 
 cdef extern from "<zlib.h>" nogil:
@@ -30,4 +39,4 @@ cdef extern from "_utils.hpp" nogil:
 
     ctypedef kseq_t* kseq_ptr_t
 
-    int complement(int) 
+    int complement(int)

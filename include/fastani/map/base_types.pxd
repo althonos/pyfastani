@@ -22,7 +22,9 @@ cdef extern from "map/include/base_types.hpp" namespace "skch" nogil:
         bool operator== (const MinimizerInfo &x)
         bool operator!= (const MinimizerInfo &x)
 
+        @staticmethod
         bool equalityByHash(const MinimizerInfo &x, const MinimizerInfo &y)
+        @staticmethod
         bool lessByHash    (const MinimizerInfo &x, const MinimizerInfo &y)
 
 

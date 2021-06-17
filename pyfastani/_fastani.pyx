@@ -6,13 +6,13 @@
 # --- C imports --------------------------------------------------------------
 
 cimport libcpp11.chrono
-from cpython cimport PyObject
+from cython.operator cimport dereference, postincrement
 from libc.string cimport memcpy
-from libc.stdio cimport printf
 from libc.limits cimport INT_MAX
 from libc.stdint cimport int64_t, uint64_t
 from libc.stdlib cimport malloc, realloc, free
 from libcpp cimport bool, nullptr
+from libcpp.algorithm cimport sort, unique
 from libcpp.deque cimport deque
 from libcpp.utility cimport pair
 from libcpp.functional cimport function
@@ -29,7 +29,7 @@ from fastani.map cimport base_types
 from fastani.map.compute_map cimport Map as Map_t
 from fastani.map.common_func cimport addMinimizers, getHash
 from fastani.map.map_parameters cimport Parameters as Parameters_t
-from fastani.map.map_stats cimport recommendedWindowSize
+from fastani.map.map_stats cimport estimateMinimumHitsRelaxed, recommendedWindowSize
 from fastani.map.win_sketch cimport Sketch as Sketch_t
 from fastani.map.base_types cimport (
     hash_t,
@@ -37,13 +37,16 @@ from fastani.map.base_types cimport (
     ContigInfo as ContigInfo_t,
     MappingResultsVector_t,
     MinimizerInfo as MinimizerInfo_t,
+    MinimizerMetaData as MinimizerMetaData_t,
+    MinimizerMapKeyType as MinimizerMapKeyType_t,
+    MinimizerMapValueType as MinimizerMapValueType_t,
     QueryMetaData as QueryMetaData_t,
 )
 
 # HACK: we need kseq_t* as a template argument, which is not supported by
 #       Cython at the moment, so we just `typedef kseq_t* kseq_ptr_t` in
 #       an external C++ header to make Cython happy
-from _utils cimport kseq_ptr_t, toupper, complement
+from _utils cimport kseq_ptr_t, toupper, complement, distance
 from _unicode cimport *
 
 
@@ -58,25 +61,6 @@ MAX_KMER_SIZE = _MAX_KMER_SIZE
 
 
 # --- Cython helpers ---------------------------------------------------------
-
-cdef bool isupper(const unsigned char[::1] seq):
-    """Check if a buffer contains only upper case characters
-    """
-    cdef size_t i
-    for i in range(seq.shape[0]):
-        if seq[i] >= b'a' and seq[i] <= b'z':
-            return False
-    return True
-
-
-cdef void upper(unsigned char[::1] seq):
-    """Make the letters in a buffer upper case, in place.
-    """
-    cdef size_t i
-    for i in range(seq.shape[0]):
-        if seq[i] >= b'a' and seq[i] <= b'z':
-            seq[i] -= 32
-
 
 cdef ssize_t _read_nucl(
     const int kind,
@@ -111,6 +95,7 @@ cdef ssize_t _read_nucl(
 
     return length
 
+
 cdef int _add_minimizers(
     vector[MinimizerInfo_t] &minimizer_index,
     const int kind,
@@ -137,6 +122,8 @@ cdef int _add_minimizers(
     cdef char                                  fwd[_MAX_KMER_SIZE*2]
     cdef char                                  bwd[_MAX_KMER_SIZE*2]
 
+    cdef uint64_t n = 0
+
     # initial fill of the buffer for the sequence sliding window
     # supporting any unicode sequence in canonical form (including
     # byte buffers containing ASCII characters)
@@ -153,6 +140,7 @@ cdef int _add_minimizers(
         # compute forward hash
         hash_fwd = getHash(<char*> &fwd[i % _MAX_KMER_SIZE], kmer_size)
         hash_bwd = getHash(<char*> &bwd[2*_MAX_KMER_SIZE - i % _MAX_KMER_SIZE - kmer_size], kmer_size)
+        n += 1
         # only record asymmetric k-mers
         if hash_bwd != hash_fwd:
             # record window size for the minimizer
@@ -504,22 +492,106 @@ cdef class Mapper:
         del self._sk
 
     @staticmethod
-    cdef void _query_fragment(
-        int i,
-        seqno_t seq_counter,
-        const unsigned char[::1] seq,
-        int min_read_length,
-        Map_t* map,
-        kseq_t* kseq,
-        ofstream* out,
-        MappingResultsVector_t* mappings
+    cdef void _do_l1_mappings(
+        const Parameters_t& param,
+        const Sketch_t& ref_sketch,
+        Map_t& map,
+
+        const int kind,
+        const void* data,
+        const ssize_t slen,
+
+        QueryMetaData_t[kseq_ptr_t, vector[MinimizerInfo_t]]& query,
+
+        vector[Map_t.L1_candidateLocus_t]& l1_mappings,
     ) nogil:
+        cdef vector[MinimizerMetaData_t] seed_hits_l1
+        cdef vector[MinimizerInfo_t].iterator uniq_end_iter
+        cdef vector[MinimizerInfo_t].iterator it
+        cdef unordered_map[MinimizerMapKeyType_t, MinimizerMapValueType_t].const_iterator seed_find
+        cdef MinimizerMapValueType_t hit_position_list
+
+        # compute minimizers
+        _add_minimizers(
+           query.minimizerTableQuery,
+           kind,
+           data,
+           slen,
+           param.kmerSize,
+           param.windowSize,
+           0,
+        )
+
+        # find the unique minimizers in thos that were just obtained
+        sort(query.minimizerTableQuery.begin(), query.minimizerTableQuery.end(), MinimizerInfo_t.lessByHash)
+        uniq_end_iter = unique(query.minimizerTableQuery.begin(), query.minimizerTableQuery.end(), MinimizerInfo_t.equalityByHash)
+        query.sketchSize = distance(query.minimizerTableQuery.begin(), uniq_end_iter)
+        if query.sketchSize == 0:
+            return
+
+        # keep minimizer if it exist in the reference lookup index
+        it = query.minimizerTableQuery.begin()
+        while it != uniq_end_iter:
+            seed_find = ref_sketch.minimizerPosLookupIndex.const_find(dereference(it).hash)
+            if seed_find != ref_sketch.minimizerPosLookupIndex.end():
+                hit_position_list = dereference(seed_find).second
+                if hit_position_list.size() < ref_sketch.getFreqThreshold():
+                    seed_hits_l1.insert(seed_hits_l1.end(), hit_position_list.begin(), hit_position_list.end())
+            postincrement(it)
+
+        # estimate the number of minimum hits, and compute candidates
+        minimum_hits = estimateMinimumHitsRelaxed(query.sketchSize, param.kmerSize, param.percentageIdentity)
+        map.computeL1CandidateRegions(query, seed_hits_l1, minimum_hits, l1_mappings)
+
+    @staticmethod
+    cdef void _query_fragment(
+        const Parameters_t& param,
+        const Sketch_t& sketch,
+        Map_t& map,
+
+        const int i,
+        const seqno_t seq_counter,
+
+        const int kind,
+        const void* data,
+        const ssize_t slen,
+
+        MappingResultsVector_t& l2_mappings
+    ) nogil:
+        cdef size_t                                         offset
+        cdef size_t                                         stride
+        cdef kseq_t                                         kseq
         cdef QueryMetaData_t[kseq_ptr_t, Map_t.MinVec_Type] query
-        query.kseq = kseq
-        query.kseq.seq.s = <char*> &seq[i * min_read_length]
-        query.kseq.seq.l = query.kseq.seq.m = min_read_length
+        cdef vector[Map_t.L1_candidateLocus_t]              l1_mappings
+
+        query.kseq = &kseq
+        query.kseq.seq.s = NULL # <char*> &seq[i * min_read_length]
+        query.kseq.seq.l = query.kseq.seq.m = param.minReadLength
         query.seqCounter = seq_counter + i
-        map.mapSingleQuerySeq[QueryMetaData_t[kseq_ptr_t, Map_t.MinVec_Type]](query, mappings[0], out[0])
+
+        offset = i * param.minReadLength
+        if kind == PyUnicode_1BYTE_KIND:
+            stride = sizeof(Py_UCS1)
+        elif kind == PyUnicode_2BYTE_KIND:
+            stride = sizeof(Py_UCS2)
+        else:
+            stride = sizeof(Py_UCS4)
+
+        Mapper._do_l1_mappings(
+            param,
+            sketch,
+            map,
+
+            kind,
+            data + offset * stride,
+            param.minReadLength,
+
+            query,
+            l1_mappings,
+        )
+
+        map.doL2Mapping(query, l1_mappings, l2_mappings)
+
 
     # --- Methods ------------------------------------------------------------
 
@@ -531,63 +603,81 @@ cdef class Mapper:
         """
         assert self._sk != nullptr
 
+        # iterators over the contigs
         cdef int                      i               # fragment counter
-        cdef kseq_t                   kseq
+        cdef object                   contig
+        cdef int                      fragment_count
+        # bookkeeping
+        cdef uint64_t                 total_fragments = 0
+        cdef uint64_t                 total_length    = 0
+        # mapping parameters and reference
         cdef Map_t*                   map
+        cdef Parameters_t*            param           = &self._param
+        cdef Sketch_t*                sketch          = self._sk
+        # sequence as a unicode object
+        cdef const unsigned char[::1] view
+        cdef int                      kind
+        cdef void*                    data
+        cdef ssize_t                  slen
+        # core genomic identity results
         cdef MappingResultsVector_t   final_mappings
         cdef vector[CGI_Results]      results
         cdef CGI_Results              result
-        cdef object                   contig
-        cdef const unsigned char[::1] seq
-        cdef uint64_t                 seql            = 0
+        # filtering and reporing results
         cdef uint64_t                 min_length
         cdef uint64_t                 shared_length
-        cdef int                      fragment_count
-        cdef uint64_t                 total_fragments = 0
-        cdef Parameters_t             p               = self._param
         cdef list                     hits            = []
-        cdef ofstream                 out
 
         # create a new mapper with the given mapping result vector
-        map = new Map_t(p, self._sk[0], total_fragments, 0)
+        map = new Map_t(param[0], sketch[0], total_fragments, 0)
 
         # iterate over contigs
         for contig in contigs:
-            # make sure the sequence is bytes
+
+            # get a way to read each letter of the contig,
+            # independently of it being `str`, `bytes`, `bytearray`, etc.
             if isinstance(contig, str):
-                contig = contig.encode("ascii")
-            # make sure the sequence is uppercase, otherwise a `makeUpperCase`
-            # is going to write in our read-only buffer in `addMinimizers`
-            if not isupper(contig):
-                warnings.warn(
-                    "Sequence contains lowercase characters, reallocating.",
-                    UserWarning,
-                )
-                contig = bytearray(contig)
-                upper(contig)
-            # get a memory view of the sequence
-            seq = contig
-            seql = seq.shape[0]
+                # make sure the unicode string is in canonical form,
+                # --> won't be needed anymore in Python 3.12
+                IF SYS_VERSION_INFO_MAJOR <= 3 and SYS_VERSION_INFO_MINOR < 12:
+                    PyUnicode_READY(contig)
+                # get kind and data for efficient indexing
+                kind = PyUnicode_KIND(contig)
+                data = PyUnicode_DATA(contig)
+                slen = PyUnicode_GET_LENGTH(contig)
+            else:
+                # attempt to view the contig as a buffer of contiguous bytes
+                view = contig
+                # pretend the bytes are an ASCII (UCS-1) encoded string
+                kind = PyUnicode_1BYTE_KIND
+                slen = view.shape[0]
+                if slen != 0:
+                    data = <void*> &view[0]
 
             # query if the sequence is large enough
-            if seql >= p.windowSize and seql >= p.kmerSize and seql >= p.minReadLength:
+            if slen >= param.windowSize and slen >= param.kmerSize and slen >= param.minReadLength:
                 with nogil:
                     # compute the expected number of blocks
-                    fragment_count = seql // p.minReadLength
+                    fragment_count = slen // param.minReadLength
                     # map the blocks
                     for i in range(fragment_count):
                         Mapper._query_fragment(
+                            param[0],
+                            sketch[0],
+                            map[0],
+
                             i,
                             total_fragments,
-                            seq,
-                            p.minReadLength,
-                            map,
-                            &kseq,
-                            &out,
-                            &final_mappings
+
+                            kind,
+                            data,
+                            slen,
+
+                            final_mappings
                         )
-                # record the number of fragments
-                total_fragments += fragment_count
+                    # record the number of fragments
+                    total_fragments += fragment_count
+                    total_length += slen
             else:
                 warnings.warn(
                     (
@@ -600,7 +690,7 @@ cdef class Mapper:
         # compute core genomic identity after successful mapping
         with nogil:
             computeCGI(
-                p,
+                param[0],
                 final_mappings,
                 map[0],
                 self._sk[0],
@@ -615,9 +705,9 @@ cdef class Mapper:
         for result in results:
             assert result.refGenomeId < self._lengths.size()
             assert result.refGenomeId < len(self._names)
-            min_length = min(seql, self._lengths[result.refGenomeId])
-            shared_length = result.countSeq * p.minReadLength
-            if shared_length >= min_length * p.minFraction:
+            min_length = min(slen, self._lengths[result.refGenomeId])
+            shared_length = result.countSeq * param.minReadLength
+            if shared_length >= min_length * param.minFraction:
                 hits.append(Hit(
                     name=self._names[result.refGenomeId],
                     identity=result.identity,

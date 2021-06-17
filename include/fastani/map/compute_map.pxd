@@ -10,7 +10,6 @@ from fastani.map.win_sketch cimport Sketch
 
 cdef extern from "map/include/computeMap.hpp" namespace "skch" nogil:
 
-
     cdef cppclass Map:
 
         struct L1_candidateLocus_t:
@@ -39,3 +38,8 @@ cdef extern from "map/include/computeMap.hpp" namespace "skch" nogil:
         )
 
         void mapSingleQuerySeq[Q](Q&, MappingResultsVector_t&, ofstream&)
+        void doL1Mapping[Q, V](Q&, V&)
+        void computeL1CandidateRegions[Q, V1, V2](Q&, V1&, int, V2&)
+        void doL2Mapping[Q, V1, V2](Q&, V1&, V2&)
+        void computeL2MappedRegions[Q](Q&, L1_candidateLocus_t&, L2_mapLocus_t&)
+        void reportL2Mappings(MappingResultsVector_t&, ofstream&)
