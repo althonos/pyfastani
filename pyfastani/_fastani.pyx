@@ -628,7 +628,7 @@ cdef class Mapper(_Parameterized):
             map,
             # start of the i-th fragment
             kind,
-            data + (i * param.minReadLength) * stride,
+            <const void*> ((<const char*> data) + (i * param.minReadLength) * stride),
             param.minReadLength,
             # outputs
             query,
