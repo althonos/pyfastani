@@ -6,15 +6,15 @@
 # --- C imports --------------------------------------------------------------
 
 cimport libcpp11.chrono
-from cython.operator cimport dereference, postincrement
+from cython.operator cimport dereference, preincrement, postincrement
 from libc.string cimport memcpy
 from libc.limits cimport INT_MAX
 from libc.stdint cimport int64_t, uint64_t
 from libc.stdlib cimport malloc, realloc, free
 from libcpp cimport bool, nullptr
-from libcpp.algorithm cimport sort, unique
+from libcpp.algorithm cimport sort
 from libcpp.deque cimport deque
-from libcpp.utility cimport pair
+from libcpp.utility cimport move, pair
 from libcpp.functional cimport function
 from libcpp.string cimport string
 from libcpp.unordered_map cimport unordered_map
@@ -46,7 +46,7 @@ from fastani.map.base_types cimport (
 # HACK: we need kseq_t* as a template argument, which is not supported by
 #       Cython at the moment, so we just `typedef kseq_t* kseq_ptr_t` in
 #       an external C++ header to make Cython happy
-from _utils cimport kseq_ptr_t, toupper, complement, distance
+from _utils cimport kseq_ptr_t, toupper, complement, distance, unique_minimizers
 from _unicode cimport *
 
 
@@ -580,7 +580,12 @@ cdef class Mapper(_Parameterized):
 
         # find the unique minimizers in thos that were just obtained
         sort(query.minimizerTableQuery.begin(), query.minimizerTableQuery.end(), MinimizerInfo_t.lessByHash)
-        uniq_end_iter = unique(query.minimizerTableQuery.begin(), query.minimizerTableQuery.end(), MinimizerInfo_t.equalityByHash)
+
+        # manually implement `unique` as template instantiation has issues on OSX
+        it = query.minimizerTableQuery.begin()
+        uniq_end_iter = unique_minimizers(query.minimizerTableQuery.begin(), query.minimizerTableQuery.end())
+
+        # early return if no minimizers were found
         query.sketchSize = distance(query.minimizerTableQuery.begin(), uniq_end_iter)
         if query.sketchSize == 0:
             return

@@ -1,10 +1,14 @@
 from libc.stdint cimport uint64_t
+from libcpp.vector cimport vector
 
 from kseq cimport kseq_t
-from fastani.map.base_types cimport MappingResultsVector_t
 from fastani.map.compute_map cimport Map
 from fastani.map.map_parameters cimport Parameters
 from fastani.map.win_sketch cimport Sketch
+from fastani.map.base_types cimport (
+    MappingResultsVector_t,
+    MinimizerInfo as MinimizerInfo_t
+)
 
 
 cdef extern from *:
@@ -36,4 +40,5 @@ cdef extern from "_utils.hpp" nogil:
 
     ctypedef kseq_t* kseq_ptr_t
 
+    cdef vector[MinimizerInfo_t].iterator unique_minimizers(vector[MinimizerInfo_t].iterator, vector[MinimizerInfo_t].iterator)
     int complement(int)
