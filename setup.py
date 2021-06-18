@@ -169,6 +169,7 @@ class build_ext(_build_ext):
             cython_args["force"] = True
         if self.debug:
             cython_args["annotate"] = True
+            cython_args["compile_time_env"]["PYFASTANI_DEBUG"] = True
             cython_args["compiler_directives"]["warn.undeclared"] = True
             cython_args["compiler_directives"]["warn.unreachable"] = True
             cython_args["compiler_directives"]["warn.maybe_uninitialized"] = True
@@ -178,6 +179,7 @@ class build_ext(_build_ext):
             cython_args["compiler_directives"]["warn.multiple_declarators"] = True
             cython_args["compiler_directives"]["profile"] = True
         else:
+            cython_args["compile_time_env"]["PYFASTANI_DEBUG"] = False
             cython_args["compiler_directives"]["boundscheck"] = False
             cython_args["compiler_directives"]["wraparound"] = False
             cython_args["compiler_directives"]["cdivision"] = True

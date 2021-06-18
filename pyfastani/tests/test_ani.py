@@ -1,5 +1,6 @@
 import os
 import sys
+import logging
 import unittest
 
 import pyfastani
@@ -13,6 +14,12 @@ ECOLI = os.path.join(FASTANI_PATH, "data", "Escherichia_coli_str_K12_MG1655.fna"
 SFLEXNERI = os.path.join(FASTANI_PATH, "data", "Shigella_flexneri_2a_01.fna")
 
 class _TestANI(object):
+
+    @classmethod
+    def setUpClass(cls):
+        cls._pyfastani_logger = logging.getLogger("pyfastani")
+        cls._pyfastani_logger.addHandler(logging.StreamHandler())
+        cls._pyfastani_logger.setLevel(logging.DEBUG)
 
     def _load_fasta():
         pass

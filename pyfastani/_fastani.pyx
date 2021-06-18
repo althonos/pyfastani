@@ -53,6 +53,8 @@ from _unicode cimport *
 # --- Python imports ---------------------------------------------------------
 
 import warnings
+import logging
+logger = logging.getLogger("pyfastani")
 
 # --- Constants --------------------------------------------------------------
 
@@ -362,6 +364,9 @@ cdef class Sketch(_Parameterized):
 
         for contig in contigs:
 
+            IF PYFASTANI_DEBUG:
+                logger.debug(f"In Sketch._add_draft, building minimizer index for contig {self._counter}")
+
             # get a way to read each letter of the contig,
             # independently of it being `str`, `bytes`, `bytearray`, etc.
             if isinstance(contig, str):
@@ -416,6 +421,9 @@ cdef class Sketch(_Parameterized):
 
         # record the number of contigs in this genome
         self._sk.sequencesByFileInfo.push_back(self._counter)
+
+        IF PYFASTANI_DEBUG:
+            logger.debug(f"In Sketch._add_draft, picked {self._sk.minimizerIndex.size()} minimizers from reference")
 
     cpdef Sketch add_draft(self, object name, object contigs):
         """add_draft(self, name, contigs)\n--
@@ -514,6 +522,9 @@ cdef class Sketch(_Parameterized):
         """
         # compute the index and the frequency histogram
         self._sk.index()
+        IF PYFASTANI_DEBUG:
+            logger.debug(f"In Sketch._index, picked {self._sk.minimizerPosLookupIndex.size()} unique minimizers")
+
         self._sk.computeFreqHist()
         # create the Mapper for this Sketch
         cdef Mapper mapper = Mapper.__new__(Mapper)
@@ -578,17 +589,30 @@ cdef class Mapper(_Parameterized):
            0,
         )
 
+        IF PYFASTANI_DEBUG:
+            with gil:
+                logger.debug(f"In Mapper._do_l1_mappings, found {query.minimizerTableQuery.size()} minimizers for read {query.seqCounter}")
+
         # find the unique minimizers in thos that were just obtained
         sort(query.minimizerTableQuery.begin(), query.minimizerTableQuery.end(), MinimizerInfo_t.lessByHash)
+        IF PYFASTANI_DEBUG:
+            with gil:
+                logger.debug(f"In Mapper._do_l1_mappings, sorted query minimizers by hash")
 
         # manually implement `unique` as template instantiation has issues on OSX
         it = query.minimizerTableQuery.begin()
         uniq_end_iter = unique_minimizers(query.minimizerTableQuery.begin(), query.minimizerTableQuery.end())
+        IF PYFASTANI_DEBUG:
+            with gil:
+                logger.debug(f"In Mapper._do_l1_mappings, built iterator over unique minimizers")
 
         # early return if no minimizers were found
         query.sketchSize = distance(query.minimizerTableQuery.begin(), uniq_end_iter)
         if query.sketchSize == 0:
             return
+        IF PYFASTANI_DEBUG:
+            with gil:
+                logger.debug(f"In Mapper._do_l1_mappings, found {query.sketchSize} unique minimizers")
 
         # keep minimizer if it exist in the reference lookup index
         it = query.minimizerTableQuery.begin()
@@ -599,10 +623,16 @@ cdef class Mapper(_Parameterized):
                 if hit_position_list.size() < ref_sketch.getFreqThreshold():
                     seed_hits_l1.insert(seed_hits_l1.end(), hit_position_list.begin(), hit_position_list.end())
             postincrement(it)
+        IF PYFASTANI_DEBUG:
+            with gil:
+                logger.debug(f"In Mapper._do_l1_mappings, kept {seed_hits_l1.size()} unique minimizers")
 
         # estimate the number of minimum hits, and compute candidates
         minimum_hits = estimateMinimumHitsRelaxed(query.sketchSize, param.kmerSize, param.percentageIdentity)
         map.computeL1CandidateRegions(query, seed_hits_l1, minimum_hits, l1_mappings)
+        IF PYFASTANI_DEBUG:
+            with gil:
+                logger.debug(f"In Mapper._do_l1_mappings, found {l1_mappings.size()} candidate regions")
 
     @staticmethod
     cdef void _query_fragment(
@@ -625,6 +655,7 @@ cdef class Mapper(_Parameterized):
         query.kseq.seq.s = NULL
         query.kseq.seq.l = param.minReadLength
         query.seqCounter = seq_counter + i
+        query.minimizerTableQuery = Map_t.MinVec_Type()
 
         Mapper._do_l1_mappings(
             # classes with configuration
@@ -711,6 +742,9 @@ cdef class Mapper(_Parameterized):
                 stride = sizeof(Py_UCS1)
                 if slen != 0:
                     data = <void*> &view[0]
+
+            IF PYFASTANI_DEBUG:
+                logger.debug(f"In Mapper._query_draft, mapping contig of of length {slen}")
 
             # query if the sequence is large enough
             if slen >= param.windowSize and slen >= param.kmerSize and slen >= param.minReadLength:
