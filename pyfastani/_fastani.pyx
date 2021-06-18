@@ -594,14 +594,14 @@ cdef class Mapper(_Parameterized):
                 logger.debug(f"In Mapper._do_l1_mappings, found {query.minimizerTableQuery.size()} minimizers for read {query.seqCounter}")
 
         # find the unique minimizers in thos that were just obtained
-        sort(query.minimizerTableQuery.begin(), query.minimizerTableQuery.end(), MinimizerInfo_t.lessByHash)
+        sort(query.minimizerTableQuery.begin(), query.minimizerTableQuery.end(), &MinimizerInfo_t.lessByHash)
         IF PYFASTANI_DEBUG:
             with gil:
                 logger.debug(f"In Mapper._do_l1_mappings, sorted query minimizers by hash")
 
         # manually implement `unique` as template instantiation has issues on OSX
         it = query.minimizerTableQuery.begin()
-        uniq_end_iter = unique(query.minimizerTableQuery.begin(), query.minimizerTableQuery.end(), MinimizerInfo_t.equalityByHash)
+        uniq_end_iter = unique(query.minimizerTableQuery.begin(), query.minimizerTableQuery.end(), &MinimizerInfo_t.equalityByHash)
         IF PYFASTANI_DEBUG:
             with gil:
                 logger.debug(f"In Mapper._do_l1_mappings, built iterator over unique minimizers")
