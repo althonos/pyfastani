@@ -44,8 +44,4 @@ extern "C" {
 
 }
 
-// OSX seems to have trouble instantiating `std::unique` with our
-// custom type, so here is a dedicated implementation
-std::vector<skch::MinimizerInfo>::iterator unique_minimizers(std::vector<skch::MinimizerInfo>::iterator first, std::vector<skch::MinimizerInfo>::iterator last);
-
 #endif // ifdef __UTILS_HPP

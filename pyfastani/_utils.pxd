@@ -40,5 +40,4 @@ cdef extern from "_utils.hpp" nogil:
 
     ctypedef kseq_t* kseq_ptr_t
 
-    cdef vector[MinimizerInfo_t].iterator unique_minimizers(vector[MinimizerInfo_t].iterator, vector[MinimizerInfo_t].iterator)
     int complement(int)

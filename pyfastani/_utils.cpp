@@ -24,9 +24,3 @@ ZEXTERN int ZEXPORT gzread(gzFile file, void* buf, unsigned int len) {
 ZEXTERN int ZEXPORT gzclose(gzFile file) {
     return 0;
 }
-
-// Implementation from: https://en.cppreference.com/w/cpp/algorithm/
-std::vector<skch::MinimizerInfo>::iterator unique_minimizers(std::vector<skch::MinimizerInfo>::iterator first, std::vector<skch::MinimizerInfo>::iterator last)
-{
-    return std::unique(first, last, skch::MinimizerInfo::equalityByHash);
-}
