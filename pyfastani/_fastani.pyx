@@ -558,7 +558,7 @@ cdef class Mapper(_Parameterized):
     @staticmethod
     cdef void _do_l1_mappings(
         const Parameters_t& param,
-        const Sketch_t& ref_sketch,
+        Sketch_t& ref_sketch,
         Map_t& map,
         const int kind,
         const void* data,
@@ -573,10 +573,10 @@ cdef class Mapper(_Parameterized):
 
         """
         cdef vector[MinimizerMetaData_t] seed_hits_l1
-        cdef vector[MinimizerInfo_t].iterator uniq_end_iter
-        cdef vector[MinimizerInfo_t].iterator it
-        cdef unordered_map[MinimizerMapKeyType_t, MinimizerMapValueType_t].const_iterator seed_find
-        cdef MinimizerMapValueType_t hit_position_list
+        # cdef vector[MinimizerInfo_t].iterator uniq_end_iter
+        # cdef vector[MinimizerInfo_t].iterator it
+        # cdef unordered_map[MinimizerMapKeyType_t, MinimizerMapValueType_t].iterator seed_find
+        # cdef MinimizerMapValueType_t hit_position_list
 
         # compute minimizers
         _add_minimizers(
@@ -617,7 +617,7 @@ cdef class Mapper(_Parameterized):
         # keep minimizer if it exist in the reference lookup index
         it = query.minimizerTableQuery.begin()
         while it != uniq_end_iter:
-            seed_find = ref_sketch.minimizerPosLookupIndex.const_find(dereference(it).hash)
+            seed_find = ref_sketch.minimizerPosLookupIndex.find(dereference(it).hash)
             if seed_find != ref_sketch.minimizerPosLookupIndex.end():
                 hit_position_list = dereference(seed_find).second
                 if hit_position_list.size() < ref_sketch.getFreqThreshold():
@@ -637,7 +637,7 @@ cdef class Mapper(_Parameterized):
     @staticmethod
     cdef void _query_fragment(
         const Parameters_t& param,
-        const Sketch_t& sketch,
+        Sketch_t& sketch,
         Map_t& map,
         const int i,
         const seqno_t seq_counter,
