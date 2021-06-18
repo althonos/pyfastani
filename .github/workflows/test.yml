@@ -44,12 +44,6 @@ jobs:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ matrix.python-version }}
         restore-keys: ${{ runner.os }}-pip-${{ matrix.python-version }}
-    - name: Cache built C files
-      uses: actions/cache@v2
-      with:
-        path: build
-        key: ${{ runner.os }}-build-${{ matrix.python-version }}
-        restore-keys: ${{ runner.os }}-build-${{ matrix.python-version }}
     - name: Setup Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
@@ -115,12 +109,6 @@ jobs:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ matrix.python-version }}
         restore-keys: ${{ runner.os }}-pip-${{ matrix.python-version }}
-    - name: Cache built C files
-      uses: actions/cache@v2
-      with:
-        path: build
-        key: ${{ runner.os }}-build-${{ matrix.python-version }}
-        restore-keys: ${{ runner.os }}-build-${{ matrix.python-version }}
     - name: Setup Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
