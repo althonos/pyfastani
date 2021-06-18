@@ -12,7 +12,7 @@ from libc.limits cimport INT_MAX
 from libc.stdint cimport int64_t, uint64_t
 from libc.stdlib cimport malloc, realloc, free
 from libcpp cimport bool, nullptr
-from libcpp.algorithm cimport sort
+from libcpp.algorithm cimport sort, unique
 from libcpp.deque cimport deque
 from libcpp.utility cimport move, pair
 from libcpp.functional cimport function
@@ -601,7 +601,7 @@ cdef class Mapper(_Parameterized):
 
         # manually implement `unique` as template instantiation has issues on OSX
         it = query.minimizerTableQuery.begin()
-        uniq_end_iter = unique_minimizers(query.minimizerTableQuery.begin(), query.minimizerTableQuery.end())
+        uniq_end_iter = unique(query.minimizerTableQuery.begin(), query.minimizerTableQuery.end(), MinimizerInfo_t.equalityByHash)
         IF PYFASTANI_DEBUG:
             with gil:
                 logger.debug(f"In Mapper._do_l1_mappings, built iterator over unique minimizers")
