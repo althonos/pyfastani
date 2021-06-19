@@ -1,7 +1,18 @@
 #ifndef __SEQUTILS_H
 #define __SEQUTILS_H
 
-#include "complement.h"
+#ifdef __X86__
+#include "cpu_features_x86.h"
+#endif
+#ifdef __X86_64__
+#include "cpu_features_x86.h"
+#endif
+#ifdef __arm__
+#include "cpu_features_arm.h"
+#endif
+#ifdef __aarch64__
+#include "cpu_features_aarch64.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {

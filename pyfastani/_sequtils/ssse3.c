@@ -2,6 +2,7 @@
 
 #include "complement.h"
 
+// Adapted from: https://github.com/adamkewley/reverse-complement/
 extern void ssse3_reverse_complement(char* dst, const char* src, size_t len) {
     const __m128i shuffle_mask = _mm_set_epi8(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
     const __m128i and_mask = _mm_set1_epi8(0x1f);

@@ -343,9 +343,33 @@ class clean(_clean):
 
 libraries = [
     Library(
+        "cpu_features",
+        include_dirs=[os.path.join("vendor", "cpu_features", "include")],
+        define_macros=[("STACK_LINE_READER_BUFFER_SIZE", 1024)],
+        sources=[
+            os.path.join("vendor", "cpu_features", "src", x)
+            for x in ("filesystem.c", "stack_line_reader.c", "string_view.c")
+        ],
+        platform_code=[
+            PlatformCode(
+                platform="AARCH64",
+                sources=[os.path.join("vendor", "cpu_features", "src", "cpuinfo_aarch64.c")]
+            ),
+            PlatformCode(
+                platform="ARM",
+                sources=[os.path.join("vendor", "cpu_features", "src", "cpuinfo_arm.c")]
+            ),
+            PlatformCode(
+                platform="X86",
+                sources=[os.path.join("vendor", "cpu_features", "src", "cpuinfo_x86.c")]
+            )
+        ]
+    ),
+    Library(
         "sequtils",
         include_dirs=[os.path.join("pyfastani", "_sequtils")],
         sources=[os.path.join("pyfastani", "_sequtils", "sequtils.c")],
+        libraries=["cpu_features"],
         platform_code=[
             PlatformCode(
                 platform="NEON",

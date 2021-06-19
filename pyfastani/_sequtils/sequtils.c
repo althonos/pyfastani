@@ -4,6 +4,18 @@
 #include "sequtils.h"
 #include "complement.h"
 
+#ifdef __X86__ || __X86_64__
+#include "cpu_features_x86.h"
+static const X86Features features = GetX86Info().features;
+#endif
+#ifdef __arm__
+#include "cpu_features_arm.h"
+static const ArmFeatures features = GetArmInfo().features;
+#endif
+#ifdef __aarch64__
+#include "cpu_features_aarch64.h"
+static const Aarch64Features features = GetAarch64Info().features;
+#endif
 
 // --- Fast copy with uppercase ----------------------------------------------
 
@@ -23,26 +35,19 @@ void default_copy_upper(char* dst, const char* src, size_t len) {
     }
 }
 
-void (*resolve_copy_upper (void))(char*, const char*, size_t) {
-  // ifunc resolvers fire before constructors, explicitly call the init
-  // function.
-#ifdef SSE2_BUILD_SUPPORTED
-  __builtin_cpu_init ();
-  if (__builtin_cpu_supports ("sse2"))
-    return sse2_copy_upper; // fast copying plus upper.
-  else
-#endif
-#ifdef NEON_BUILD_SUPPORTED
-__builtin_cpu_init ();
-if (__builtin_cpu_supports ("neon"))
-  return neon_copy_upper; // fast copying plus upper.
-else
-#endif
-    return default_copy_upper;
+void copy_upper(char* dst, const char* src, size_t len) {
+    #ifdef __arm__
+      if (features.neon)
+        return neon_copy_upper(dst, src, len);
+      else
+    #endif
+    #if defined(__X86__) || defined(__X86_64__)
+      if (features.sse2)
+        return sse2_copy_upper(dst, src, len); // fast copying plus upper.
+      else
+    #endif
+        return default_copy_upper(dst, src, len);
 }
-
-void copy_upper(char*, const char*, size_t)
-     __attribute__ ((ifunc ("resolve_copy_upper")));
 
 
 // --- Fast reverse complement -----------------------------------------------
@@ -60,15 +65,11 @@ void default_reverse_complement(char* dst, const char* src, size_t len) {
     }
 }
 
-void (*resolve_reverse_complement (void))(char*, const char*, size_t) {
-#ifdef SSSE3_BUILD_SUPPORTED
-    __builtin_cpu_init ();
-    if (__builtin_cpu_supports ("ssse3"))
-        return ssse3_reverse_complement; // fast reverse_complement.
-    else
-#endif
-        return default_reverse_complement;
+void reverse_complement(char* src, const char* dst, size_t len) {
+    #if defined(__X86__) || defined(__X86_64__)
+      if (features.ssse3)
+        return ssse3_reverse_complement(dst, src, len); // fast reverse complement.
+      else
+    #endif
+        return default_reverse_complement(dst, src, len);
 }
-
-void reverse_complement(char*, const char*, size_t)
-     __attribute__ ((ifunc ("resolve_reverse_complement")));
