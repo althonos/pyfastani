@@ -24,20 +24,18 @@ cdef extern from "<iterator>" namespace "std" nogil:
     cdef ssize_t distance[I](I first, I last);
 
 
-cdef extern from "<zlib.h>" nogil:
-    cdef struct gzFile_s:
-        pass
-
-    ctypedef gzFile_s* gzFile
-
-    gzFile gzopen(int fd, const char* mode)
-    gzFile gzopen64(const char* path, const char* mode)
-    int gzread(gzFile file, void* buf, unsigned int len)
-    int gzclose(gzFile file)
+# cdef extern from "<zlib.h>" nogil:
+#     cdef struct gzFile_s:
+#         pass
+#
+#     ctypedef gzFile_s* gzFile
+#
+#     gzFile gzopen(int fd, const char* mode)
+#     gzFile gzopen64(const char* path, const char* mode)
+#     int gzread(gzFile file, void* buf, unsigned int len)
+#     int gzclose(gzFile file)
 
 
 cdef extern from "_utils.hpp" nogil:
 
     ctypedef kseq_t* kseq_ptr_t
-
-    int complement(int)

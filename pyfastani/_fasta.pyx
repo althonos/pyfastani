@@ -11,7 +11,7 @@ from libc.errno cimport errno
 from libc.string cimport strlen, memcpy, memset
 
 from _unicode cimport PyUnicode_1BYTE_KIND, PyUnicode_FromKindAndData
-from _simd cimport copy_upper
+from _sequtils cimport copy_upper
 
 cdef extern from "<ctype.h>" nogil:
     cdef int toupper(int c)

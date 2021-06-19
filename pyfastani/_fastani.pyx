@@ -46,8 +46,9 @@ from fastani.map.base_types cimport (
 # HACK: we need kseq_t* as a template argument, which is not supported by
 #       Cython at the moment, so we just `typedef kseq_t* kseq_ptr_t` in
 #       an external C++ header to make Cython happy
-from _utils cimport kseq_ptr_t, toupper, complement, distance
+from _utils cimport kseq_ptr_t, toupper, distance
 from _unicode cimport *
+from _sequtils cimport copy_upper, reverse_complement
 
 
 # --- Python imports ---------------------------------------------------------
@@ -88,10 +89,17 @@ cdef ssize_t _read_nucl(
     else:
         length = 0
 
-    for j in range(length):
-        nuc = toupper(<int> PyUnicode_READ(kind, data, i + j))
-        fwd[_MAX_KMER_SIZE + j] = nuc
-        bwd[_MAX_KMER_SIZE - j - 1] = complement(nuc)
+    # if UCS-1, bytes are next to each other, so we can use the SIMD
+    # implementations to copy into uppercase
+    if kind == PyUnicode_1BYTE_KIND:
+        copy_upper(&fwd[_MAX_KMER_SIZE], &(<char*> data)[i], length)
+    else:
+        for j in range(length):
+            fwd[_MAX_KMER_SIZE + j] = toupper(<int> PyUnicode_READ(kind, data, i + j))
+
+    # reverse complement in backward buffer
+    reverse_complement(&bwd[_MAX_KMER_SIZE - length], &fwd[_MAX_KMER_SIZE], length)
+
 
     return length
 
