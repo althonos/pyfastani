@@ -16,6 +16,14 @@ include vendor/FastANI/Makefile.in
 include vendor/FastANI/README.md
 recursive-include vendor/FastANI/src *.h *.hpp *.md
 
+include vendor/cpu_features/LICENSE
+include vendor/cpu_features/README.md
+include vendor/cpu_features/CONTRIBUTING.md
+include vendor/cpu_features/CMakeLists.txt
+recursive-include vendor/cpu_features/cmake   *
+recursive-include vendor/cpu_features/src     *.h *.c
+recursive-include vendor/cpu_features/include *.h
+
 # Cython headers
 recursive-include include   *.pxd
 
@@ -23,6 +31,7 @@ recursive-include include   *.pxd
 recursive-include pyfastani *.pyx *.h *.c *.py *pyi *.cpp *.hpp
 include pyfastani/py.typed
 exclude pyfastani/_fastani.cpp
+exclude pyfastani/_fasta.c
 
 # test files
 include pyfastani/tests/requirements.txt

@@ -139,11 +139,16 @@ for more details.
 ## ⚖️ License
 
 This library is provided under the [MIT License](https://choosealicense.com/licenses/mit/).
+
 The FastANI code was written by [Chirag Jain](https://github.com/cjain7)
 and is distributed under the terms of the
-[Apache License 2.0](https://choosealicense.com/licenses/apache-2.0/) license,
+[Apache License 2.0](https://choosealicense.com/licenses/apache-2.0/),
 unless otherwise specified in vendored sources. See `vendor/FastANI/LICENSE`
- for more information.
+for more information.
+
+The `cpu_features` code was written by [Guillaume Chatelet](https://github.com/gchatelet)
+and is distributed under the terms of the [Apache License 2.0](https://choosealicense.com/licenses/apache-2.0/).
+See `vendor/cpu_features/LICENSE` for more information.
 
 *This project is in no way not affiliated, sponsored, or otherwise endorsed
 by the [original FastANI authors](https://github.com/cjain7). It was developed by
