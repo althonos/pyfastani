@@ -13,7 +13,7 @@
 [![GitHub issues](https://img.shields.io/github/issues/althonos/pyfastani.svg?style=flat-square&maxAge=600)](https://github.com/althonos/pyfastani/issues)
 [![Changelog](https://img.shields.io/badge/keep%20a-changelog-8A0707.svg?maxAge=2678400&style=flat-square)](https://github.com/althonos/pyfastani/blob/master/CHANGELOG.md)
 [![Downloads](https://img.shields.io/badge/dynamic/json?style=flat-square&color=303f9f&maxAge=86400&label=downloads&query=%24.total_downloads&url=https%3A%2F%2Fapi.pepy.tech%2Fapi%2Fprojects%2Fpyfastani)](https://pepy.tech/project/pyfastani)
-[![DOI](https://img.shields.io/badge/doi-10.5281%2Fzenodo.4940238-purple?style=flat-square&maxAge=86400)](https://doi.org/10.5281/zenodo.4940238)
+[![DOI](https://img.shields.io/badge/doi-10.5281%2Fzenodo.4940237-purple?style=flat-square&maxAge=86400)](https://doi.org/10.5281/zenodo.4940237)
 
 
 ## 🗺️ Overview
@@ -42,7 +42,7 @@ FastANI internals, which has the following advantages over CLI wrappers:
   without needing to write them to a temporary file.
 
 *This library is still a work-in-progress, and in an experimental stage,
-but it should already pack enough features to run one-to-one computations.*
+but it should already pack enough features to be used in a standard pipeline.*
 
 
 ## 🔧 Installing
