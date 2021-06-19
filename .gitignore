@@ -69,8 +69,8 @@ __pycache__/
 *$py.class
 
 # C extensions
-*.c
-*.cpp
+pyfastani/_fasta.c
+pyfastani/_fastani.cpp
 *.html
 
 # Distribution / packaging
