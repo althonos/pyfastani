@@ -65,7 +65,7 @@ void default_reverse_complement(char* dst, const char* src, size_t len) {
     }
 }
 
-void reverse_complement(char* src, const char* dst, size_t len) {
+void reverse_complement(char* dst, const char* src, size_t len) {
     #if defined(__X86__) || defined(__X86_64__)
       if (features.ssse3)
         return ssse3_reverse_complement(dst, src, len); // fast reverse complement.
