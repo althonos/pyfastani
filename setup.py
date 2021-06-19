@@ -204,18 +204,19 @@ class build_ext(_build_ext):
         else:
             ext.define_macros.append(("CYTHON_WITHOUT_ASSERTIONS", 1))
 
-        # make sure to build with C++11
-        if self.compiler.compiler_type == "msvc":
-            ext.extra_compile_args.append("/std:c++11")
-            ext.extra_link_args.append("/std:c++11")
-        else:
-            ext.extra_compile_args.append("-std=c++11")
-            ext.extra_link_args.append("-std=c++11")
-
-        # in case we are compiling with clang, make sure to use libstdc++
-        if self.compiler.compiler_type == "unix" and sys.platform == "darwin":
-            ext.extra_compile_args.append("-stdlib=libc++")
-            ext.extra_link_args.append("-stdlib=libc++")
+        # C++ OS-specific options
+        if ext.language == "c++":
+            # make sure to build with C++11
+            if self.compiler.compiler_type == "msvc":
+                ext.extra_compile_args.append("/std:c++11")
+                ext.extra_link_args.append("/std:c++11")
+            else:
+                ext.extra_compile_args.append("-std=c++11")
+                ext.extra_link_args.append("-std=c++11")
+            # in case we are compiling with clang, make sure to use libstdc++
+            if self.compiler.compiler_type == "unix" and sys.platform == "darwin":
+                ext.extra_compile_args.append("-stdlib=libc++")
+                ext.extra_link_args.append("-stdlib=libc++")
 
         # build the rest of the extension as normal
         _build_ext.build_extension(self, ext)
@@ -249,6 +250,12 @@ extensions = [
         language="c++",
         include_dirs=["include", "pyfastani"],
         define_macros=[("USE_BOOST", 1)],
+    ),
+    Extension(
+        "pyfastani._fasta",
+        [os.path.join("pyfastani", x) for x in ("_fasta.pyx", "_simd.c")],
+        language="c",
+        # extra_compile_args=["-mavx2"],
     )
 ]
 
