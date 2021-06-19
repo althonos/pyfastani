@@ -4,7 +4,7 @@
 #include "sequtils.h"
 #include "complement.h"
 
-#ifdef __X86__ || __X86_64__
+#if defined(__X86__) || defined(__X86_64__)
 #include "cpu_features_x86.h"
 static const X86Features features = GetX86Info().features;
 #endif
@@ -37,6 +37,11 @@ void default_copy_upper(char* dst, const char* src, size_t len) {
 
 void copy_upper(char* dst, const char* src, size_t len) {
     #ifdef __arm__
+      if (features.neon)
+        return neon_copy_upper(dst, src, len);
+      else
+    #endif
+    #ifdef __aarch64__
       if (features.neon)
         return neon_copy_upper(dst, src, len);
       else
