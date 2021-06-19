@@ -16,9 +16,10 @@ import setuptools
 from distutils import log
 from distutils.command.clean import clean as _clean
 from distutils.errors import CompileError
+from setuptools.command.build_clib import build_clib as _build_clib
 from setuptools.command.build_ext import build_ext as _build_ext
 from setuptools.command.sdist import sdist as _sdist
-from setuptools.extension import Extension, Library
+from setuptools.extension import Extension, Library as _Library
 
 try:
     from Cython.Build import cythonize
@@ -37,6 +38,25 @@ def _split_multiline(value):
     value = value.strip()
     sep = max('\n,;', key=value.count)
     return list(filter(None, map(lambda x: x.strip(), value.split(sep))))
+
+
+# --- `setuptools` classes ---------------------------------------------------
+
+class PlatformCode:
+
+    def __init__(self, platform, sources, extra_compile_args=None):
+        self.platform = platform
+        self.sources = sources
+        self.extra_compile_args = extra_compile_args or []
+
+
+class Library(_Library):
+
+    def __init__(self, name, sources, *args, **kwargs):
+        self.platform_code = kwargs.pop("platform_code", None) or []
+        super().__init__(name, sources, *args, **kwargs)
+        for platform_code in self.platform_code:
+            self.depends.extend(platform_code.sources)
 
 
 # --- `setup.py` commands ----------------------------------------------------
@@ -108,11 +128,11 @@ class publicize_headers(_build_ext):
             dst.write(source)
 
 
-class build_ext(_build_ext):
-    """A `build_ext` that disables optimizations if compiled in debug mode.
+class build_clib(_build_clib):
+    """A custom `build_clib` that compiles out of source.
     """
 
-    # --- Autotools-like helpers ---
+    # --- Silent invocation of the compiler ---
 
     def _silent_spawn(self, cmd):
         try:
@@ -120,34 +140,99 @@ class build_ext(_build_ext):
         except subprocess.CalledProcessError as err:
             raise CompileError(err.stderr)
 
-    def _needs_clang_flags(self):
-        self.mkpath(self.build_temp)
-        testfile = os.path.join(self.build_temp, "testc++11.cpp")
+    # --- Compatibility with base `build_clib` command ---
 
-        with open(testfile, "w") as f:
-            f.write('#include <chrono>\n')
-        try:
-            with mock.patch.object(self.compiler, "spawn", new=self._silent_spawn):
-                objects = self.compiler.compile([testfile], debug=self.debug)
-        except CompileError as err:
-            log.warn('failed to include <chrono>, assuming we need clang flags')
-            return True
-        else:
-            log.info('successfully built a C++11 program with default flags')
-            return False
+    def check_library_list(self, libraries):
+        pass
+
+    def get_library_names(self):
+        return [ lib.name for lib in self.libraries ]
+
+    def get_source_files(self):
+        return [ source for lib in self.libraries for source in lib.sources ]
+
+    # --- Build code ---
+
+    def build_libraries(self, libraries):
+        self.mkpath(self.build_clib)
+        for library in libraries:
+            sources = library.sources.copy()
+            for platform_code in library.platform_code:
+                sources.extend(platform_code.sources)
+            self.make_file(
+                sources,
+                self.compiler.library_filename(library.name, output_dir=self.build_clib),
+                self.build_library,
+                (library,)
+            )
+
+    def build_library(self, library):
+        # update compile flags if compiling in debug or release mode
+        if self.debug:
+            if self.compiler.compiler_type in {"unix", "cygwin", "mingw32"}:
+                library.extra_compile_args.append("-Og")
+                library.extra_compile_args.append("--coverage")
+                library.extra_link_args.append("--coverage")
+            elif self.compiler.compiler_type == "msvc":
+                library.extra_compile_args.append("/Od")
+
+        # attempt to build the platform specific code
+        extra_objects = []
+        for platform_code in library.platform_code:
+            extra_preargs = library.extra_compile_args + platform_code.extra_compile_args
+            try:
+                extra_objects.extend(self.compiler.compile(
+                    platform_code.sources,
+                    output_dir=self.build_temp,
+                    include_dirs=library.include_dirs + [self.build_clib],
+                    macros=library.define_macros,
+                    debug=self.debug,
+                    depends=library.depends,
+                    extra_preargs=extra_preargs,
+                ))
+            except CompileError:
+                log.warn(f"failed to compile platform-specific {platform_code.platform} code")
+            else:
+                self.compiler.define_macro(f"{platform_code.platform}_BUILD_SUPPORTED")
+
+        # build objects and create a static library
+        objects = self.compiler.compile(
+            library.sources,
+            output_dir=self.build_temp,
+            include_dirs=library.include_dirs + [self.build_clib],
+            macros=library.define_macros,
+            debug=self.debug,
+            depends=library.depends,
+            extra_preargs=library.extra_compile_args,
+        )
+        self.compiler.create_static_lib(
+            objects + extra_objects,
+            library.name,
+            output_dir=self.build_clib,
+            debug=self.debug,
+        )
+
+
+class build_ext(_build_ext):
+    """A `build_ext` that disables optimizations if compiled in debug mode.
+    """
+
+    # --- Autotools-like helpers ---
 
     def finalize_options(self):
         _build_ext.finalize_options(self)
         self._clib_cmd = self.get_finalized_command("build_clib")
-        self._clib_cmd.force = self.force
+        self._pub_cmd = self.get_finalized_command("publicize_headers")
+        self._clib_cmd.force = self._pub_cmd.force = self.force
         self._clib_cmd.debug = self.debug
+        self.build_clib = self._clib_cmd.build_clib
 
     def run(self):
         # make sure sources have been patched to expose private fields
         if not self.distribution.have_run.get("publicize_headers", False):
-            pub_cmd = self.get_finalized_command("publicize_headers")
-            pub_cmd.force = self.force
-            pub_cmd.run()
+            self._pub_cmd.run()
+        if not self.distribution.have_run.get("build_clib", False):
+            self._clib_cmd.run()
 
         # check `cythonize` is available
         if isinstance(cythonize, ImportError):
@@ -218,44 +303,84 @@ class build_ext(_build_ext):
                 ext.extra_compile_args.append("-stdlib=libc++")
                 ext.extra_link_args.append("-stdlib=libc++")
 
+        # add extra static objects
+        for lib in ext.libraries:
+            ext.extra_objects.append(self.compiler.library_filename(
+                lib,
+                output_dir=self.build_clib
+            ))
+
         # build the rest of the extension as normal
         _build_ext.build_extension(self, ext)
 
 
 class clean(_clean):
 
+    def remove_file(self, filename):
+        if os.path.exists(filename):
+            log.info("removing {!r}".format(filename))
+            os.remove(filename)
+        else:
+            log.info("{!r} does not exist -- can't clean it".format(filename))
+
     def run(self):
-
-        source_dir_abs = os.path.join(os.path.dirname(__file__), "pyfastani")
-        source_dir = os.path.relpath(source_dir_abs)
-
-        patterns = ["*.html"]
-        if self.all:
-            patterns.extend(["*.so", "*.c"])
-
-        for pattern in patterns:
-            for file in glob.glob(os.path.join(source_dir, pattern)):
-                log.info("removing {!r}".format(file))
-                os.remove(file)
-
         _clean.run(self)
+
+        _build_cmd = self.get_finalized_command("build_ext")
+        _build_cmd.inplace = True
+
+        for ext in self.distribution.ext_modules:
+            filename = _build_cmd.get_ext_filename(ext.name)
+            if self.all:
+                self.remove_file(filename)
+            basename = _build_cmd.get_ext_fullname(ext.name).replace(".", os.path.sep)
+            for ext in ["c", "cpp", "html"]:
+                filename = os.path.extsep.join([basename, ext])
+                self.remove_file(filename)
 
 
 # --- Cython extensions ------------------------------------------------------
+
+libraries = [
+    Library(
+        "sequtils",
+        include_dirs=[os.path.join("pyfastani", "_sequtils")],
+        sources=[os.path.join("pyfastani", "_sequtils", "sequtils.c")],
+        platform_code=[
+            PlatformCode(
+                platform="NEON",
+                sources=[os.path.join("pyfastani", "_sequtils", "neon.c")],
+                extra_compile_args=["-mneon"],
+            ),
+            PlatformCode(
+                platform="SSE2",
+                sources=[os.path.join("pyfastani", "_sequtils", "sse2.c")],
+                extra_compile_args=["-msse2"],
+            ),
+            PlatformCode(
+                platform="SSSE3",
+                sources=[os.path.join("pyfastani", "_sequtils", "ssse3.c")],
+                extra_compile_args=["-mssse3"],
+            )
+        ]
+    ),
+]
 
 extensions = [
     Extension(
         "pyfastani._fastani",
         [os.path.join("pyfastani", x) for x in ("_utils.cpp", "omp.cpp", "_fastani.pyx")],
         language="c++",
-        include_dirs=["include", "pyfastani"],
-        define_macros=[("USE_BOOST", 1)],
+        include_dirs=["include", "pyfastani", os.path.join("pyfastani", "_sequtils")],
+        define_macros=[("USE_BOOST", 1)], # used to compile FastANI without GSL
+        libraries=["sequtils"]
     ),
     Extension(
         "pyfastani._fasta",
-        [os.path.join("pyfastani", x) for x in ("_fasta.pyx", "_simd.c")],
+        [os.path.join("pyfastani", "_fasta.pyx")],
+        include_dirs=["include", "pyfastani", os.path.join("pyfastani", "simd")],
         language="c",
-        # extra_compile_args=["-mavx2"],
+        libraries=["sequtils"],
     )
 ]
 
@@ -263,7 +388,9 @@ extensions = [
 
 setuptools.setup(
     ext_modules=extensions,
+    libraries=libraries,
     cmdclass=dict(
+        build_clib=build_clib,
         build_ext=build_ext,
         publicize_headers=publicize_headers,
         clean=clean,

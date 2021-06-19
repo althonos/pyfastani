@@ -9,10 +9,10 @@ extern "C" {
 
 void default_copy_upper(char*, const char*, size_t);
 #ifdef SSE2_BUILD_SUPPORTED
-void sse2_copy_upper(char*, const char*, size_t);
+extern void sse2_copy_upper(char*, const char*, size_t);
 #endif
 #ifdef NEON_BUILD_SUPPORTED
-void neon_copy_upper(char* dst, const char* src, size_t len);
+extern void neon_copy_upper(char* dst, const char* src, size_t len);
 #endif
 void copy_upper(char*, const char*, size_t);
 
