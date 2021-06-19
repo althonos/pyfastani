@@ -30,6 +30,13 @@ except ImportError as err:
 
 PLATFORM_MACHINE   = platform.machine()
 SYS_IMPLEMENTATION = sys.implementation.name
+UNIX = not sys.platform.startswith("win")
+
+PROCESSOR_IS_MIPS = PLATFORM_MACHINE.startswith("mips")
+PROCESSOR_IS_ARM = PLATFORM_MACHINE.startswith("arm")
+PROCESSOR_IS_AARCH64 = PLATFORM_MACHINE.startswith("aarch64")
+PROCESSOR_IS_X86 = PLATFORM_MACHINE.startswith(("x86_64", "AMD64", "amd64", "i386", "i486"))
+PROCESSOR_IS_POWER = PLATFORM_MACHINE.startswith(("powerpc", "ppc"))
 
 
 # --- Utils ------------------------------------------------------------------
@@ -140,6 +147,10 @@ class build_clib(_build_clib):
         except subprocess.CalledProcessError as err:
             raise CompileError(err.stderr)
 
+    def _silent_compile(self, *args, **kwargs):
+        with mock.patch.object(self.compiler, "spawn", new=self._silent_spawn):
+            return self.compiler.compile(*args, **kwargs)
+
     # --- Compatibility with base `build_clib` command ---
 
     def check_library_list(self, libraries):
@@ -152,6 +163,55 @@ class build_clib(_build_clib):
         return [ source for lib in self.libraries for source in lib.sources ]
 
     # --- Build code ---
+
+    def _has_dlopen(self):
+        self.mkpath(self.build_temp)
+        filename = os.path.join(self.build_temp, "test_dlopen.c")
+        with open(filename, "w") as f:
+            f.write("""
+                #include <dlfcn.h>
+                int main() { dlopen("", 0); }
+            """)
+        try:
+            self.compiler.compile([filename], debug=True)
+        except CompileError:
+            log.warn("could not find `dlopen` function from <dlfcn.h>")
+            return False
+        else:
+            log.info("found `dlopen` function from <dlfcn.h>")
+            return True
+
+    def _has_getauxval(self):
+        self.mkpath(self.build_temp)
+        filename = os.path.join(self.build_temp, "test_dlopen.c")
+        with open(filename, "w") as f:
+            f.write("""
+                #include <sys/getauxval.h>
+                int main() { getauxval(0); }
+            """)
+        try:
+            self._silent_compile([filename], debug=True)
+        except CompileError:
+            log.warn("could not find `getauxval` function from <sys/getauxval.h>")
+            return False
+        else:
+            log.info("found `getauxval` function from <sys/getauxval.h>")
+            return True
+
+    def _add_platform_defines(self, library):
+        # add some compatibility defines from `cpu_features`
+        if PROCESSOR_IS_X86 and sys.platform == "darwin":
+            library.define_macros.append(("HAVE_SYSCTLBYNAME", 1))
+        if UNIX:
+            hardware_detect = False
+            if self._has_dlopen():
+                library.define_macros.append(("HAVE_DLFCN_H", 1))
+                hardware_detect = True
+            if self._has_getauxval():
+                library.define_macros.append(("HAVE_STRONG_GETAUXVAL", 1))
+                hardware_detect = True
+            if hardware_detect:
+                library.sources.append(os.path.join("vendor", "cpu_features", "src", "hwcaps.c"))
 
     def build_libraries(self, libraries):
         self.mkpath(self.build_clib)
@@ -167,6 +227,10 @@ class build_clib(_build_clib):
             )
 
     def build_library(self, library):
+        # add specific code for `cpu_features`
+        if library.name == "cpu_features":
+            self._add_platform_defines(library)
+
         # update compile flags if compiling in debug or release mode
         if self.debug:
             if self.compiler.compiler_type in {"unix", "cygwin", "mingw32"}:
@@ -181,7 +245,7 @@ class build_clib(_build_clib):
         for platform_code in library.platform_code:
             extra_preargs = library.extra_compile_args + platform_code.extra_compile_args
             try:
-                extra_objects.extend(self.compiler.compile(
+                extra_objects.extend(self._silent_compile(
                     platform_code.sources,
                     output_dir=self.build_temp,
                     include_dirs=library.include_dirs + [self.build_clib],
@@ -193,6 +257,7 @@ class build_clib(_build_clib):
             except CompileError:
                 log.warn(f"failed to compile platform-specific {platform_code.platform} code")
             else:
+                log.info(f"successfully built platform-specific {platform_code.platform} code")
                 self.compiler.define_macro(f"{platform_code.platform}_BUILD_SUPPORTED")
 
         # build objects and create a static library
@@ -341,6 +406,8 @@ class clean(_clean):
 
 # --- Cython extensions ------------------------------------------------------
 
+
+
 libraries = [
     Library(
         "cpu_features",
@@ -367,9 +434,13 @@ libraries = [
     ),
     Library(
         "sequtils",
-        include_dirs=[os.path.join("pyfastani", "_sequtils")],
-        sources=[os.path.join("pyfastani", "_sequtils", "sequtils.c")],
+        include_dirs=[
+            os.path.join("pyfastani", "_sequtils"),
+            os.path.join("vendor", "cpu_features", "include")
+        ],
+        sources=[os.path.join("pyfastani", "_sequtils", "sequtils.cpp")],
         libraries=["cpu_features"],
+        language="c++",
         platform_code=[
             PlatformCode(
                 platform="NEON",
