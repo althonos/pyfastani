@@ -11,14 +11,14 @@
 
 void default_copy_upper(char* dst, const char* src, size_t len) {
     while (len-- > 0) {
-        *dst = tolower(*src);
+        *dst = toupper(*src);
         src++;
         dst++;
     }
 }
 
 #ifdef __SSE2__
-void sse_copy_upper(char* dst, const char* src, size_t len) {
+void sse2_copy_upper(char* dst, const char* src, size_t len) {
 
     const __m128i ascii_a = _mm_set1_epi8('a' - 1);
     const __m128i ascii_z = _mm_set1_epi8('z');
@@ -71,7 +71,7 @@ void (*resolve_copy_upper (void))(char*, const char*, size_t)
 #ifdef __SSE2__
   __builtin_cpu_init ();
   if (__builtin_cpu_supports ("sse2"))
-    return sse_copy_upper; // fast copying plus upper.
+    return sse2_copy_upper; // fast copying plus upper.
   else
 #endif
 #ifdef __ARM_NEON__

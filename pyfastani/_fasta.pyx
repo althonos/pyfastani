@@ -71,7 +71,9 @@ cdef class Parser:
             raise StopIteration()
 
         line_length = strlen(<char*> &self.line)
-        id = PyUnicode_FromKindAndData(PyUnicode_1BYTE_KIND, <void*> &self.line[1], line_length - 1)
+        if self.line[line_length - 1] != b"\n":
+            raise BufferError("FASTA identifier too large for the line buffer")
+        id = PyUnicode_FromKindAndData(PyUnicode_1BYTE_KIND, <void*> &self.line[1], line_length - 2)
 
         with nogil:
             while fgets(<char*> &self.line, sizeof(self.line), self.file) != NULL:
@@ -88,13 +90,7 @@ cdef class Parser:
                     line_length -= 1
 
                 copy_upper(&self.seq_buffer[seq_length], <char*> &self.line, line_length)
-                #
-                #
-                # while self.line[line_pos] != b"\n" and self.line[line_pos] != b"\0":
-                #     self.seq_buffer[seq_length] = toupper(self.line[line_pos])
-                #     line_pos += 1
-                #     seq_length += 1
+                seq_length += line_length
 
         seq = PyBytes_FromStringAndSize(self.seq_buffer, seq_length)
         return Record(id, seq)
-        # return Record(id, seq)

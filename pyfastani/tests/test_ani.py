@@ -2,9 +2,8 @@ import os
 import sys
 import unittest
 
-import pyfastani
-
-from . import minifasta
+from .. import Sketch
+from .._fasta import Parser
 
 PROJECT_PATH = os.path.realpath(os.path.join(__file__, "..", "..", ".."))
 FASTANI_PATH = os.path.join(PROJECT_PATH, "vendor", "FastANI")
@@ -26,7 +25,7 @@ class _TestANI(object):
         # $ ./fastANI -q data/Shigella_flexneri_2a_01.fna -r data/Escherichia_coli_str_K12_MG1655.fna
         # data/Shigella_flexneri_2a_01.fna data/Escherichia_coli_str_K12_MG1655.fna 97.7507 1303 1608
 
-        sketch = pyfastani.Sketch()
+        sketch = Sketch()
 
         ref = self._load_fasta(ECOLI)
         sketch.add_genome("Escherichia_coli_str_K12_MG1655", self._get_sequence(ref[0]))
@@ -46,23 +45,19 @@ class _TestANI(object):
 class TestANIString(_TestANI, unittest.TestCase):
 
     def _load_fasta(self, path):
-        with open(path) as f:
-            records = list(minifasta.parse(f))
-        return records
+        return list(Parser(path))
 
     def _get_sequence(self, record):
-        return record.seq
+        return record.seq.decode("ascii")
 
 
 class TestANIBytes(_TestANI, unittest.TestCase):
 
     def _load_fasta(self, path):
-        with open(path) as f:
-            records = list(minifasta.parse(f))
-        return records
+        return list(Parser(path))
 
     def _get_sequence(self, record):
-        return record.seq.encode()
+        return record.seq
 
 
 try:
