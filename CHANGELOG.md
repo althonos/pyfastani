@@ -6,11 +6,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyrodigal/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/althonos/pyrodigal/compare/v0.2.1...HEAD
+
+
+## [v0.2.1] - 2021-06-20
+[v0.2.1]: https://github.com/althonos/pyrodigal/compare/v0.2.0...v0.2.1
+
+### Fixed
+- Missing header files in the `tar.gz` distribution, preventing compilation of the wheel from source.
 
 
 ## [v0.2.0] - 2021-06-20
-[Unreleased]: https://github.com/althonos/pyrodigal/compare/v0.1.2...v0.2.0
+[v0.2.0]: https://github.com/althonos/pyrodigal/compare/v0.1.2...v0.2.0
 
 ### Added
 - `Sketch.clear` method to remove all sequences currently in a `Sketch` and reset the list of minimizers.
