@@ -28,7 +28,7 @@ recursive-include vendor/cpu_features/include *.h
 recursive-include include   *.pxd
 
 # Cython sources
-recursive-include pyfastani *.pyx *.h *.c *.py *pyi *.cpp *.hpp
+recursive-include pyfastani *.pyx *.pxd *.h *.c *.py *pyi *.cpp *.hpp
 include pyfastani/py.typed
 exclude pyfastani/_fastani.cpp
 exclude pyfastani/_fasta.c
