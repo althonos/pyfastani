@@ -5,6 +5,7 @@
 
 # --- C imports --------------------------------------------------------------
 
+cimport cython
 cimport libcpp11.chrono
 from cython.operator cimport dereference, preincrement, postincrement
 from libc.string cimport memcpy
@@ -231,6 +232,7 @@ cdef class _Parameterized:
         return self._param.p_value
 
 
+@cython.final
 cdef class Sketch(_Parameterized):
     """An index computing minimizers over the reference genomes.
     """
@@ -536,6 +538,7 @@ cdef class Sketch(_Parameterized):
         return mapper
 
 
+@cython.final
 cdef class Mapper(_Parameterized):
     """A genome mapper using Murmur3 hashes and k-mers to compute ANI.
     """
@@ -548,6 +551,9 @@ cdef class Mapper(_Parameterized):
     # cdef Parameters_t     _param
 
     # --- Magic methods ------------------------------------------------------
+
+    def __init__(self, *args, **kwargs):
+        raise TypeError("Mapper cannot be instantiated, use `Sketch.index` instead.")
 
     def __dealloc__(self):
         del self._sk
