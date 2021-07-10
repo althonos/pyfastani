@@ -1,4 +1,5 @@
 import os
+import pickle
 import sys
 import unittest
 
@@ -58,6 +59,44 @@ class TestANIBytes(_TestANI, unittest.TestCase):
 
     def _get_sequence(self, record):
         return record.seq
+
+    def test_sketch_pickling(self):
+        """Check that pickling before indexing produces consistent results.
+        """
+        sketch = Sketch()
+
+        ref = self._load_fasta(ECOLI)
+        sketch.add_genome("Escherichia_coli_str_K12_MG1655", self._get_sequence(ref[0]))
+
+        mapper = pickle.loads(pickle.dumps(sketch)).index()
+
+        contigs = self._load_fasta(SFLEXNERI)
+        hits = mapper.query_draft(map(self._get_sequence, contigs))
+
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0].name, "Escherichia_coli_str_K12_MG1655")
+        self.assertEqual(hits[0].matches, 1303)
+        self.assertEqual(hits[0].fragments, 1608)
+        self.assertAlmostEqual(hits[0].identity, 97.7507, places=4)
+
+    def test_mapper_pickling(self):
+        """Check that pickling after indexing produces consistent results.
+        """
+        sketch = Sketch()
+
+        ref = self._load_fasta(ECOLI)
+        sketch.add_genome("Escherichia_coli_str_K12_MG1655", self._get_sequence(ref[0]))
+
+        mapper = pickle.loads(pickle.dumps(sketch.index()))
+
+        contigs = self._load_fasta(SFLEXNERI)
+        hits = mapper.query_draft(map(self._get_sequence, contigs))
+
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0].name, "Escherichia_coli_str_K12_MG1655")
+        self.assertEqual(hits[0].matches, 1303)
+        self.assertEqual(hits[0].fragments, 1608)
+        self.assertAlmostEqual(hits[0].identity, 97.7507, places=4)
 
 
 try:

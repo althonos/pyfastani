@@ -1,4 +1,5 @@
 import os
+import pickle
 import sys
 import unittest
 import warnings
@@ -49,3 +50,12 @@ class TestSketch(unittest.TestCase):
             warnings.simplefilter("ignore")
             sketch.add_draft("short_seq", ["ATGC"*1000, "ATGC"])
             self.assertEqual(sketch.names, ["short_seq"])
+
+    def test_pickle(self):
+        """Check that `Sketch` objects can be pickled and unpickled.
+        """
+        sketch = pyfastani.Sketch()
+        sketch.add_genome("short_seq", "ATGC"*1000)
+
+        sketch2 = pickle.loads(pickle.dumps(sketch))
+        self.assertEqual(sketch2.names, ["short_seq"])
