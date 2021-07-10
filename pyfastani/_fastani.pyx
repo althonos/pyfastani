@@ -900,6 +900,12 @@ cdef class Hit:
             and self.identity == other.identity
         )
 
+    def __getstate__(self):
+        return self.name, self.matches, self.fragments, self.identity
+
+    def __setstate__(self, state):
+        self.name, self.matches, self.fragments, self.identity = state
+
 
 cdef class MinimizerInfo:
     """The information about a single minimizer.
@@ -935,6 +941,12 @@ cdef class MinimizerInfo:
             and self.sequence_id == other.sequence_id
             and self.window_position == other.window_position
         )
+
+    def __getstate__(self):
+        return self.hash, self.sequence_id, self.window_position
+
+    def __setstate__(self, state):
+        self.hash, self.sequence_id, self.window_position = state
 
     # --- Methods ------------------------------------------------------------
 
