@@ -35,6 +35,7 @@ from fastani.map.win_sketch cimport Sketch as Sketch_t
 from fastani.map.base_types cimport (
     hash_t,
     seqno_t,
+    offset_t,
     ContigInfo as ContigInfo_t,
     MappingResultsVector_t,
     MinimizerInfo as MinimizerInfo_t,
@@ -349,6 +350,13 @@ cdef class Sketch(_Parameterized):
         """
         return self._names[:]
 
+    @property
+    def minimizers(self):
+        """`list` of `MinimizerInfo`: The currently recorded minimizers.
+        """
+        assert self._sk != nullptr
+        return [MinimizerInfo.from_raw(mi) for mi in self._sk.minimizerIndex]
+
     # --- Methods ------------------------------------------------------------
 
     cdef int _add_draft(self, object name, object contigs) except 1:
@@ -656,6 +664,17 @@ cdef class Mapper(_Parameterized):
 
         map.doL2Mapping(query, l1_mappings, l2_mappings)
 
+    # --- Properties ---------------------------------------------------------
+
+    @property
+    def minimizers(self):
+        """`list` of `MinimizerInfo`: The currently recorded minimizers.
+        """
+        assert self._sk != nullptr
+        return [
+            MinimizerInfo(mini.hash, mini.seqId, mini.wpos)
+            for mini in self._sk.minimizerIndex
+        ]
 
     # --- Methods ------------------------------------------------------------
 
@@ -846,10 +865,15 @@ cdef class Mapper(_Parameterized):
 cdef class Hit:
     """A single hit found when querying the mapper with a genome.
     """
+
+    # --- Attributes ---------------------------------------------------------
+
     cdef readonly object  name
     cdef readonly seqno_t matches
     cdef readonly seqno_t fragments
     cdef readonly float   identity
+
+    # --- Magic methods ------------------------------------------------------
 
     def __init__(self, object name, float identity, seqno_t matches, seqno_t fragments):
         """__init__(self, name, identity, matches, fragments)\n--
@@ -875,3 +899,56 @@ cdef class Hit:
             and self.fragments == other.fragments
             and self.identity == other.identity
         )
+
+
+cdef class MinimizerInfo:
+    """The information about a single minimizer.
+    """
+
+    # --- Attributes ---------------------------------------------------------
+
+    cdef readonly hash_t   hash
+    cdef readonly seqno_t  sequence_id
+    cdef readonly offset_t window_position
+
+    # --- Magic methods ------------------------------------------------------
+
+    def __init__(self, hash_t hash, seqno_t sequence_id, offset_t window_position):
+        """__init__(self, hash, sequence_id, window_position)\n--
+
+        Create a new `MinimizerInfo` with the given parameters.
+
+        """
+        self.hash = hash
+        self.sequence_id = sequence_id
+        self.window_position = window_position
+
+    def __repr__(self):
+        cdef str ty = type(self).__name__
+        return "{}(hash={!r}, sequence_id={!r}, window_position={!r})".format(
+            ty, self.hash, self.sequence_id, self.window_position
+        )
+
+    def __eq__(self, MinimizerInfo other):
+        return (
+                self.hash == other.hash
+            and self.sequence_id == other.sequence_id
+            and self.window_position == other.window_position
+        )
+
+    # --- Methods ------------------------------------------------------------
+
+    @staticmethod
+    cdef MinimizerInfo from_raw(MinimizerInfo_t raw):
+        cdef info = MinimizerInfo.__new__(MinimizerInfo)
+        info.hash = raw.hash
+        info.sequence_id = raw.seqId
+        info.window_position = raw.wpos
+        return info
+
+    cdef MinimizerInfo_t to_raw(self):
+        cdef MinimizerInfo_t info
+        info.hash = self.hash
+        info.seqId = self.sequence_id
+        info.wpos = self.window_position
+        return info
