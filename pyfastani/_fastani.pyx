@@ -194,6 +194,30 @@ cdef class _Parameterized:
         self._param.visualize = False
         self._param.matrixOutput = False
 
+    def __getstate__(self):
+        return {
+            "kmerSize": self._param.kmerSize,
+            "windowSize": self._param.windowSize,
+            "minReadLength": self._param.minReadLength,
+            "minFraction": self._param.minFraction,
+            "threads": self._param.threads,
+            "alphabetSize": self._param.alphabetSize,
+            "referenceSize": self._param.referenceSize,
+            "percentageIdentity": self._param.percentageIdentity,
+            "p_value": self._param.p_value,
+        }
+
+    def __setstate__(self, state):
+        self._param.kmerSize = state["kmerSize"]
+        self._param.windowSize = state["windowSize"]
+        self._param.minReadLength = state["minReadLength"]
+        self._param.minFraction = state["minFraction"]
+        self._param.threads = state["threads"]
+        self._param.alphabetSize = state["alphabetSize"]
+        self._param.referenceSize = state["referenceSize"]
+        self._param.percentageIdentity = state["percentageIdentity"]
+        self._param.p_value = state["p_value"]
+
     # --- Properties ---------------------------------------------------------
 
     @property
@@ -241,7 +265,6 @@ cdef class Sketch(_Parameterized):
     # --- Attributes ---------------------------------------------------------
 
     cdef Sketch_t*        _sk       # the internal Sketch_t
-    # cdef Parameters_t     _param    # the internal Parameters_t (const)
     cdef size_t           _counter  # the number of contigs (not genomes)
     cdef vector[uint64_t] _lengths  # array mapping each genome to its length
     cdef list             _names    # list mapping each genome to its name
@@ -334,6 +357,29 @@ cdef class Sketch(_Parameterized):
 
     def __dealloc__(self):
         del self._sk
+
+    def __getstate__(self):
+        return {
+            "parameters": _Parameterized.__getstate__(self),
+            "counter": self._counter,
+            "lengths": list(self._lengths),
+            "names": list(self._names),
+            "sketch": {
+                "sequencesByFileInfo": list(self._sk.sequencesByFileInfo),
+                "minimizerIndex": self.minimizers,
+            }
+        }
+
+    def __setstate__(self, state):
+        _Parameterized.__setstate__(self, state["parameters"])
+        self._counter = state["counter"]
+        self._lengths = state["lengths"]
+        self._names = state["names"]
+
+        self._sk.sequencesByFileInfo = state["sketch"]["sequencesByFileInfo"]
+        self._sk.minimizerIndex = vector[MinimizerInfo_t]()
+        for info in state["sketch"]["minimizerIndex"]:
+            self._sk.minimizerIndex.push_back((<MinimizerInfo?> info).to_raw())
 
     # --- Properties ---------------------------------------------------------
 
@@ -556,15 +602,73 @@ cdef class Mapper(_Parameterized):
     cdef Sketch_t*        _sk
     cdef vector[uint64_t] _lengths
     cdef list             _names
-    # cdef Parameters_t     _param
 
     # --- Magic methods ------------------------------------------------------
+
+    def __cinit__(self):
+        # create a new Sketch with the parameters
+        self._sk = new Sketch_t(self._param)
 
     def __init__(self, *args, **kwargs):
         raise TypeError("Mapper cannot be instantiated, use `Sketch.index` instead.")
 
     def __dealloc__(self):
         del self._sk
+
+    def __getstate__(self):
+        return {
+            "parameters": _Parameterized.__getstate__(self),
+            "lengths": list(self._lengths),
+            "names": list(self._names),
+            "sketch": {
+                "sequencesByFileInfo": list(self._sk.sequencesByFileInfo),
+                "minimizerIndex": self.minimizers,
+                "minimizerFreqHistogram": dict(self._sk.minimizerFreqHistogram),
+                "minimizerPosLookupIndex": {
+                    pair.first:[
+                        {"seqId": minimizer.seqId, "wpos": minimizer.wpos}
+                        for minimizer in pair.second
+                    ]
+                    for pair in self._sk.minimizerPosLookupIndex
+                },
+            }
+        }
+
+    def __setstate__(self, state):
+        _Parameterized.__setstate__(self, state["parameters"])
+        self._lengths = state["lengths"]
+        self._names = state["names"]
+
+        self._sk.minimizerFreqHistogram = state["sketch"]["minimizerFreqHistogram"]
+        self._sk.sequencesByFileInfo = state["sketch"]["sequencesByFileInfo"]
+        self._sk.minimizerIndex = vector[MinimizerInfo_t]()
+        for info in state["sketch"]["minimizerIndex"]:
+            self._sk.minimizerIndex.push_back((<MinimizerInfo?> info).to_raw())
+
+        cdef MinimizerMetaData_t mini
+        cdef vector[MinimizerMetaData_t] map_value
+        self._sk.minimizerPosLookupIndex = unordered_map[MinimizerMapKeyType_t, MinimizerMapValueType_t]()
+        for key, value in state["sketch"]["minimizerPosLookupIndex"].items():
+            map_value = vector[MinimizerMetaData_t]()
+            for item in value:
+                mini.seqId = item["seqId"]
+                mini.wpos = item["wpos"]
+                map_value.push_back(mini)
+            self._sk.minimizerPosLookupIndex.insert(pair[MinimizerMapKeyType_t, MinimizerMapValueType_t](key, map_value))
+
+    # --- Properties ---------------------------------------------------------
+
+    @property
+    def minimizers(self):
+        """`list` of `MinimizerInfo`: The currently recorded minimizers.
+        """
+        assert self._sk != nullptr
+        return [
+            MinimizerInfo(mini.hash, mini.seqId, mini.wpos)
+            for mini in self._sk.minimizerIndex
+        ]
+
+    # --- Methods ------------------------------------------------------------
 
     @staticmethod
     cdef void _do_l1_mappings(
@@ -663,20 +767,6 @@ cdef class Mapper(_Parameterized):
         )
 
         map.doL2Mapping(query, l1_mappings, l2_mappings)
-
-    # --- Properties ---------------------------------------------------------
-
-    @property
-    def minimizers(self):
-        """`list` of `MinimizerInfo`: The currently recorded minimizers.
-        """
-        assert self._sk != nullptr
-        return [
-            MinimizerInfo(mini.hash, mini.seqId, mini.wpos)
-            for mini in self._sk.minimizerIndex
-        ]
-
-    # --- Methods ------------------------------------------------------------
 
     cdef list _query_draft(self, object contigs):
         """Query the sketcher for the given contigs.
@@ -952,11 +1042,7 @@ cdef class MinimizerInfo:
 
     @staticmethod
     cdef MinimizerInfo from_raw(MinimizerInfo_t raw):
-        cdef info = MinimizerInfo.__new__(MinimizerInfo)
-        info.hash = raw.hash
-        info.sequence_id = raw.seqId
-        info.window_position = raw.wpos
-        return info
+        return MinimizerInfo(raw.hash, raw.seqId, raw.wpos)
 
     cdef MinimizerInfo_t to_raw(self):
         cdef MinimizerInfo_t info
