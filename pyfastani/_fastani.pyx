@@ -622,7 +622,10 @@ cdef class Mapper(_Parameterized):
             "names": list(self._names),
             "sketch": {
                 "sequencesByFileInfo": list(self._sk.sequencesByFileInfo),
-                "minimizerIndex": self.minimizers,
+                "minimizerIndex": [
+                    (mini.hash, mini.seqId, mini.wpos)
+                    for mini in self._sk.minimizerIndex
+                ],
                 "minimizerFreqHistogram": dict(self._sk.minimizerFreqHistogram),
                 "minimizerPosLookupIndex": {
                     pair.first:[
@@ -643,7 +646,7 @@ cdef class Mapper(_Parameterized):
         self._sk.sequencesByFileInfo = state["sketch"]["sequencesByFileInfo"]
         self._sk.minimizerIndex = vector[MinimizerInfo_t]()
         for info in state["sketch"]["minimizerIndex"]:
-            self._sk.minimizerIndex.push_back((<MinimizerInfo?> info).to_raw())
+            self._sk.minimizerIndex.push_back(MinimizerInfo(info[0], info[1], info[2]).to_raw())
 
         cdef MinimizerMetaData_t mini
         cdef vector[MinimizerMetaData_t] map_value
