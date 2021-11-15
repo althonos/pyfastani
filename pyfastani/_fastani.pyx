@@ -8,6 +8,8 @@
 cimport cython
 cimport libcpp11.chrono
 from cython.operator cimport dereference, preincrement, postincrement
+from cpython.ref cimport Py_INCREF
+from cpython.list cimport PyList_New, PyList_SET_ITEM
 from libc.string cimport memcpy
 from libc.limits cimport INT_MAX
 from libc.stdint cimport int64_t, uint64_t
@@ -498,7 +500,20 @@ cdef class Sketch(_Parameterized):
         """`list` of `MinimizerInfo`: The currently recorded minimizers.
         """
         assert self._sk != nullptr
-        return [MinimizerInfo.from_raw(mi) for mi in self._sk.minimizerIndex]
+
+        cdef MinimizerInfo   m
+        cdef MinimizerInfo_t m_raw
+        cdef size_t          i     = 0
+        cdef size_t          n     = self._sk.minimizerIndex.size()
+        cdef list            minis = PyList_New(n)
+
+        for m_raw in self._sk.minimizerIndex:
+            m = MinimizerInfo.from_raw(m_raw)
+            Py_INCREF(m)
+            PyList_SET_ITEM(minis, i, m)
+            i += 1
+
+        return minis
 
     # --- Methods ------------------------------------------------------------
 
@@ -746,6 +761,7 @@ cdef class Mapper(_Parameterized):
         self._lengths = state["lengths"]
         self._names = state["names"]
 
+        cdef MinimizerInfo minimizer
         self._sk.minimizerFreqHistogram = state["sketch"]["minimizerFreqHistogram"]
         self._sk.sequencesByFileInfo = state["sketch"]["sequencesByFileInfo"]
         self._sk.minimizerIndex = vector[MinimizerInfo_t]()
@@ -772,10 +788,20 @@ cdef class Mapper(_Parameterized):
         """`list` of `MinimizerInfo`: The currently recorded minimizers.
         """
         assert self._sk != nullptr
-        return [
-            MinimizerInfo(mini.hash, mini.seqId, mini.wpos)
-            for mini in self._sk.minimizerIndex
-        ]
+
+        cdef MinimizerInfo   m
+        cdef MinimizerInfo_t m_raw
+        cdef size_t          i     = 0
+        cdef size_t          n     = self._sk.minimizerIndex.size()
+        cdef list            minis = PyList_New(n)
+
+        for m_raw in self._sk.minimizerIndex:
+            m = MinimizerInfo.from_raw(m_raw)
+            Py_INCREF(m)
+            PyList_SET_ITEM(minis, i, m)
+            i += 1
+
+        return minis
 
     # --- Methods ------------------------------------------------------------
 
