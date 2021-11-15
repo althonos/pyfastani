@@ -1332,7 +1332,6 @@ cdef class MinimizerIndex:
             None,
             None,
             self.items(),
-            None
         )
 
     # --- Methods ------------------------------------------------------------
