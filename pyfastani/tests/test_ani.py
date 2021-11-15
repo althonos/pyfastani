@@ -6,11 +6,18 @@ import unittest
 from .. import Sketch
 from .._fasta import Parser
 
+# root project folder
 PROJECT_PATH = os.path.realpath(os.path.join(__file__, "..", "..", ".."))
-FASTANI_PATH = os.path.join(PROJECT_PATH, "vendor", "FastANI")
 
+# vendored test files from the FastANI sources
+FASTANI_PATH = os.path.join(PROJECT_PATH, "vendor", "FastANI")
 ECOLI = os.path.join(FASTANI_PATH, "data", "Escherichia_coli_str_K12_MG1655.fna")
 SFLEXNERI = os.path.join(FASTANI_PATH, "data", "Shigella_flexneri_2a_01.fna")
+
+# local test files from MIBiG
+BGC0001425 = os.path.realpath(os.path.join(__file__, "..", "data", "BGC0001425.faa"))
+BGC0001427 = os.path.realpath(os.path.join(__file__, "..", "data", "BGC0001427.faa"))
+BGC0001428 = os.path.realpath(os.path.join(__file__, "..", "data", "BGC0001428.faa"))
 
 class _TestANI(object):
 
@@ -41,6 +48,32 @@ class _TestANI(object):
         self.assertEqual(hits[0].matches, 1303)
         self.assertEqual(hits[0].fragments, 1608)
         self.assertAlmostEqual(hits[0].identity, 97.7507, places=4)
+
+    @unittest.skipUnless(os.path.exists(BGC0001425), "missing FastANI data files")
+    @unittest.skipUnless(os.path.exists(BGC0001427), "missing FastANI data files")
+    @unittest.skipUnless(os.path.exists(BGC0001428), "missing FastANI data files")
+    def test_myxochromide_bgcs(self):
+        """Check that we get expected hits between homologous BGCs.
+        """
+        sketch = Sketch(protein=True, fragment_length=100)
+        bgc1 = self._load_fasta(BGC0001425)
+        sketch.add_draft("BGC0001425", map(self._get_sequence, bgc1))
+        bgc2 = self._load_fasta(BGC0001427)
+        sketch.add_draft("BGC0001427", map(self._get_sequence, bgc1))
+
+        mapper = sketch.index()
+        bgc3 = self._load_fasta(BGC0001428)
+        hits = mapper.query_draft(map(self._get_sequence, bgc3))
+
+        self.assertEqual(len(hits), 2)
+        self.assertEqual(hits[0].name, "BGC0001425")
+        self.assertEqual(hits[0].matches, 130)
+        self.assertEqual(hits[0].fragments, 176)
+        self.assertEqual(hits[1].name, "BGC0001427")
+        self.assertEqual(hits[1].matches, 130)
+        self.assertEqual(hits[1].fragments, 176)
+
+
 
 
 class TestANIString(_TestANI, unittest.TestCase):

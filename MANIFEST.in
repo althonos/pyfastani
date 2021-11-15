@@ -33,5 +33,6 @@ include pyfastani/py.typed
 exclude pyfastani/_fastani.cpp
 exclude pyfastani/_fasta.c
 
-# test files
+# Test files
 include pyfastani/tests/requirements.txt
+recursive-include pyfastani/tests/data/ *.fna *.faa
