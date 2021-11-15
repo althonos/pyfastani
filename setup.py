@@ -29,7 +29,6 @@ except ImportError as err:
 # --- Constants --------------------------------------------------------------
 
 PLATFORM_MACHINE   = platform.machine()
-SYS_IMPLEMENTATION = sys.implementation.name
 UNIX = not sys.platform.startswith("win")
 
 PROCESSOR_IS_MIPS = PLATFORM_MACHINE.startswith("mips")

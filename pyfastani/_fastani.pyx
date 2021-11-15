@@ -102,11 +102,10 @@ cdef ssize_t _read_nucl(
     # reverse complement in backward buffer
     reverse_complement(&bwd[_MAX_KMER_SIZE - length], &fwd[_MAX_KMER_SIZE], length)
 
-
     return length
 
 
-cdef int _add_minimizers(
+cdef int _add_minimizers_nucl(
     vector[MinimizerInfo_t] &minimizer_index,
     const int kind,
     const void* data,
@@ -173,6 +172,93 @@ cdef int _add_minimizers(
                 if minimizer_index.empty() or minimizer_index.back() != q.front().first:
                     q.front().first.wpos = current_window_id
                     minimizer_index.push_back(q.front().first)
+
+
+cdef ssize_t _read_prot(
+    const int kind,
+    const void* data,
+    const ssize_t slen,
+    const ssize_t i,
+    char* fwd,
+) nogil except -1:
+    cdef ssize_t j
+    cdef ssize_t length
+    cdef char    nuc
+
+    if _MAX_KMER_SIZE <= slen - i:
+        length = _MAX_KMER_SIZE
+    elif i < slen:
+        length = slen - i
+    else:
+        length = 0
+
+    # if UCS-1, bytes are next to each other, so we can use the SIMD
+    # implementations to copy into uppercase
+    if kind == PyUnicode_1BYTE_KIND:
+        copy_upper(&fwd[_MAX_KMER_SIZE], &(<char*> data)[i], length)
+    else:
+        for j in range(length):
+            fwd[_MAX_KMER_SIZE + j] = toupper(<int> PyUnicode_READ(kind, data, i + j))
+
+
+cdef int _add_minimizers_prot(
+    vector[MinimizerInfo_t] &minimizer_index,
+    const int kind,
+    const void* data,
+    const ssize_t slen,
+    const int kmer_size,
+    const int window_size,
+    const seqno_t seq_counter,
+) nogil except 1:
+    """Add the minimizers for a single protein to the sketcher.
+
+    Adapted from the ``skch::commonFunc::addMinimizers`` method in
+    ``commonFunc.hpp`` to work without the ``kseq`` I/O.
+
+    """
+    cdef deque[pair[MinimizerInfo_t, int64_t]] q
+    cdef void*                                 last
+    cdef int64_t                               i
+    cdef int64_t                               current_window_id
+    cdef hash_t                                current_kmer
+    cdef MinimizerInfo_t                       info
+    cdef char                                  fwd[_MAX_KMER_SIZE*2]
+
+    cdef uint64_t n = 0
+
+    # initial fill of the buffer for the sequence sliding window
+    # supporting any unicode sequence in canonical form (including
+    # byte buffers containing ASCII characters)
+    _read_prot(kind, data, slen, 0, fwd)
+
+    # process all windows of width `kmer_size` in the input sequence
+    for i in range(slen - kmer_size + 1):
+        # if reaching the end of the sliding window, slide buffer
+        # left, and read new block in right side
+        if i % _MAX_KMER_SIZE == 0:
+            memcpy(&fwd[0], &fwd[_MAX_KMER_SIZE], _MAX_KMER_SIZE)
+            _read_prot(kind, data, slen, i + _MAX_KMER_SIZE, fwd)
+        # compute forward hash
+        current_kmer = getHash(<char*> &fwd[i % _MAX_KMER_SIZE], kmer_size)
+        n += 1
+        # record window size for the minimizer
+        current_window_id = i - window_size + 1
+        # If front minimum is not in the current window, remove it
+        while not q.empty() and q.front().second <= i - window_size:
+            q.pop_front()
+        # hashes less than equal to current_k;er can be discarded
+        while not q.empty() and q.back().first.hash >= current_kmer:
+            q.pop_back()
+        # push current_kmer and position to back of the queue
+        info.hash = current_kmer
+        info.seqId = seq_counter
+        info.wpos = 0
+        q.push_back(pair[MinimizerInfo_t, int64_t](info, i))
+        # select the minimizer from Q and put into index
+        if current_window_id >= 0:
+            if minimizer_index.empty() or minimizer_index.back() != q.front().first:
+                q.front().first.wpos = current_window_id
+                minimizer_index.push_back(q.front().first)
 
 
 # --- Cython classes ---------------------------------------------------------
@@ -256,6 +342,12 @@ cdef class _Parameterized:
         """
         return self._param.p_value
 
+    @property
+    def protein(self):
+        """`bool`: Whether or not the object expects peptides or nucleotides.
+        """
+        return self._param.alphabetSize == 20
+
 
 @cython.final
 cdef class Sketch(_Parameterized):
@@ -272,10 +364,6 @@ cdef class Sketch(_Parameterized):
     # --- Magic methods ------------------------------------------------------
 
     def __cinit__(self):
-        # hardcode reporting parameters so that we can control
-        # execution flow
-        self._param.alphabetSize = 4
-
         # create a new Sketch with the parameters
         self._sk = new Sketch_t(self._param)
         # create a new list of names
@@ -290,8 +378,9 @@ cdef class Sketch(_Parameterized):
         double p_value=1e-03,
         float percentage_identity=80.0,
         uint64_t reference_size=5_000_000,
+        bint protein=False,
     ):
-        f"""__init__(*, k=16, fragment_length=3000, minimum_fraction=0.2, p_value=1e-03, percentage_identity=80, reference_size=5000000)\n--
+        f"""__init__(self, *, k=16, fragment_length=3000, minimum_fraction=0.2, p_value=1e-03, percentage_identity=80, reference_size=5000000, protein=False)\n--
 
         Create a new FastANI sequence sketch.
 
@@ -313,6 +402,10 @@ cdef class Sketch(_Parameterized):
                 to determine the recommended window size.*
             reference_size (`int`): An estimate of the reference length.
                 *Used to determine the recommended window size.*
+            protein (`bool`): Whether or not protein sequences are expected.
+                If `True`, the alphabet size is changed from 4 to 20,
+                minimizers are not computed on the "reverse" strand, and the
+                window size is set to 1.
 
         """
         if minimum_fraction > 1 or minimum_fraction < 0:
@@ -341,15 +434,19 @@ cdef class Sketch(_Parameterized):
         self._param.percentageIdentity = percentage_identity
         self._param.referenceSize = reference_size
 
-        # compute the recommended window size
-        self._param.windowSize = fastani.map.map_stats.recommendedWindowSize(
-            self._param.p_value,
-            self._param.kmerSize,
-            self._param.alphabetSize,
-            self._param.percentageIdentity,
-            self._param.minReadLength,
-            self._param.referenceSize
-        )
+        if protein:
+            self._param.alphabetSize = 20
+            self._param.windowSize = 1
+        else:
+            self._param.alphabetSize = 4
+            self._param.windowSize = fastani.map.map_stats.recommendedWindowSize(
+                self._param.p_value,
+                self._param.kmerSize,
+                self._param.alphabetSize,
+                self._param.percentageIdentity,
+                self._param.minReadLength,
+                self._param.referenceSize
+            )
 
         # initialize bookkeeping values and make sure self._sk is cleared
         # (in case __init__ is called more than once)
@@ -448,17 +545,27 @@ cdef class Sketch(_Parameterized):
 
             # check the sequence is large enough to compute minimizers
             if slen >= param.windowSize and slen >= param.kmerSize:
-                assert param.alphabetSize == 4 # assumed in `_add_minimizers`
                 with nogil:
-                    _add_minimizers(
-                        self._sk.minimizerIndex,
-                        kind,
-                        data,
-                        slen,
-                        param.kmerSize,
-                        param.windowSize,
-                        self._counter,
-                    )
+                    if param.alphabetSize == 4:
+                        _add_minimizers_nucl(
+                            self._sk.minimizerIndex,
+                            kind,
+                            data,
+                            slen,
+                            param.kmerSize,
+                            param.windowSize,
+                            self._counter,
+                        )
+                    else:
+                        _add_minimizers_prot(
+                            self._sk.minimizerIndex,
+                            kind,
+                            data,
+                            slen,
+                            param.kmerSize,
+                            param.windowSize,
+                            self._counter,
+                        )
             else:
                 warnings.warn(
                   (
@@ -622,14 +729,11 @@ cdef class Mapper(_Parameterized):
             "names": list(self._names),
             "sketch": {
                 "sequencesByFileInfo": list(self._sk.sequencesByFileInfo),
-                "minimizerIndex": [
-                    (mini.hash, mini.seqId, mini.wpos)
-                    for mini in self._sk.minimizerIndex
-                ],
+                "minimizerIndex": self.minimizers,
                 "minimizerFreqHistogram": dict(self._sk.minimizerFreqHistogram),
                 "minimizerPosLookupIndex": {
                     pair.first:[
-                        {"seqId": minimizer.seqId, "wpos": minimizer.wpos}
+                        (minimizer.seqId, minimizer.wpos)
                         for minimizer in pair.second
                     ]
                     for pair in self._sk.minimizerPosLookupIndex
@@ -645,17 +749,19 @@ cdef class Mapper(_Parameterized):
         self._sk.minimizerFreqHistogram = state["sketch"]["minimizerFreqHistogram"]
         self._sk.sequencesByFileInfo = state["sketch"]["sequencesByFileInfo"]
         self._sk.minimizerIndex = vector[MinimizerInfo_t]()
-        for info in state["sketch"]["minimizerIndex"]:
-            self._sk.minimizerIndex.push_back(MinimizerInfo(info[0], info[1], info[2]).to_raw())
+        for minimizer in state["sketch"]["minimizerIndex"]:
+            self._sk.minimizerIndex.push_back(minimizer.to_raw())
 
+        cdef seqno_t seqId
+        cdef offset_t wpos
         cdef MinimizerMetaData_t mini
         cdef vector[MinimizerMetaData_t] map_value
         self._sk.minimizerPosLookupIndex = unordered_map[MinimizerMapKeyType_t, MinimizerMapValueType_t]()
         for key, value in state["sketch"]["minimizerPosLookupIndex"].items():
             map_value = vector[MinimizerMetaData_t]()
-            for item in value:
-                mini.seqId = item["seqId"]
-                mini.wpos = item["wpos"]
+            for (seqId, wpos) in value:
+                mini.seqId = seqId
+                mini.wpos = wpos
                 map_value.push_back(mini)
             self._sk.minimizerPosLookupIndex.insert(pair[MinimizerMapKeyType_t, MinimizerMapValueType_t](key, map_value))
 
@@ -697,15 +803,26 @@ cdef class Mapper(_Parameterized):
         cdef MinimizerMapValueType_t hit_position_list
 
         # compute minimizers
-        _add_minimizers(
-           query.minimizerTableQuery,
-           kind,
-           data,
-           slen,
-           param.kmerSize,
-           param.windowSize,
-           0,
-        )
+        if param.alphabetSize == 4:
+            _add_minimizers_nucl(
+               query.minimizerTableQuery,
+               kind,
+               data,
+               slen,
+               param.kmerSize,
+               param.windowSize,
+               0,
+            )
+        else:
+            _add_minimizers_prot(
+               query.minimizerTableQuery,
+               kind,
+               data,
+               slen,
+               param.kmerSize,
+               param.windowSize,
+               0,
+            )
 
         # find the unique minimizers in thos that were just obtained
         sort(query.minimizerTableQuery.begin(), query.minimizerTableQuery.end(), &MinimizerInfo_t.lessByHash)
