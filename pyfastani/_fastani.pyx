@@ -746,13 +746,7 @@ cdef class Mapper(_Parameterized):
                 "sequencesByFileInfo": list(self._sk.sequencesByFileInfo),
                 "minimizerIndex": self.minimizers,
                 "minimizerFreqHistogram": dict(self._sk.minimizerFreqHistogram),
-                "minimizerPosLookupIndex": {
-                    pair.first:[
-                        (minimizer.seqId, minimizer.wpos)
-                        for minimizer in pair.second
-                    ]
-                    for pair in self._sk.minimizerPosLookupIndex
-                },
+                "minimizerPosLookupIndex": self.lookup_index,
             }
         }
 
@@ -768,17 +762,15 @@ cdef class Mapper(_Parameterized):
         for minimizer in state["sketch"]["minimizerIndex"]:
             self._sk.minimizerIndex.push_back(minimizer.to_raw())
 
-        cdef seqno_t seqId
+        cdef seqno_t  seqId
         cdef offset_t wpos
-        cdef MinimizerMetaData_t mini
+        cdef Position pos
         cdef vector[MinimizerMetaData_t] map_value
         self._sk.minimizerPosLookupIndex = unordered_map[MinimizerMapKeyType_t, MinimizerMapValueType_t]()
         for key, value in state["sketch"]["minimizerPosLookupIndex"].items():
             map_value = vector[MinimizerMetaData_t]()
-            for (seqId, wpos) in value:
-                mini.seqId = seqId
-                mini.wpos = wpos
-                map_value.push_back(mini)
+            for pos in value:
+                map_value.push_back(pos.to_raw())
             self._sk.minimizerPosLookupIndex.insert(pair[MinimizerMapKeyType_t, MinimizerMapValueType_t](key, map_value))
 
     # --- Properties ---------------------------------------------------------
@@ -802,6 +794,20 @@ cdef class Mapper(_Parameterized):
             i += 1
 
         return minis
+
+    @property
+    def lookup_index(self):
+        """`MinimizerLookupIndex`: The index of initial minimizer positions.
+
+        This table is used to retrieve at which positions the minimizers
+        appear in the reference genomes.
+
+        """
+        assert self._sk != nullptr
+        cdef MinimizerIndex index = MinimizerIndex.__new__(MinimizerIndex)
+        index._map = &self._sk.minimizerPosLookupIndex
+        index.owner = self
+        return index
 
     # --- Methods ------------------------------------------------------------
 
@@ -1124,7 +1130,7 @@ cdef class Hit:
 
     def __repr__(self):
         cdef str ty = type(self).__name__
-        return "{}(name={!r}, identity={!r} matches={!r}, fragments={!r})".format(
+        return "{}(name={!r}, identity={!r}, matches={!r}, fragments={!r})".format(
             ty, self.name, self.identity, self.matches, self.fragments
         )
 
@@ -1136,11 +1142,11 @@ cdef class Hit:
             and self.identity == other.identity
         )
 
-    def __getstate__(self):
-        return self.name, self.matches, self.fragments, self.identity
-
-    def __setstate__(self, state):
-        self.name, self.matches, self.fragments, self.identity = state
+    def __reduce__(self):
+        return (
+            Hit,
+            (self.name, self.identity, self.matches, self.fragments)
+        )
 
 
 cdef class MinimizerInfo:
@@ -1178,11 +1184,11 @@ cdef class MinimizerInfo:
             and self.window_position == other.window_position
         )
 
-    def __getstate__(self):
-        return self.hash, self.sequence_id, self.window_position
-
-    def __setstate__(self, state):
-        self.hash, self.sequence_id, self.window_position = state
+    def __reduce__(self):
+        return (
+            MinimizerInfo,
+            (self.hash, self.sequence_id, self.window_position)
+        )
 
     # --- Methods ------------------------------------------------------------
 
@@ -1196,3 +1202,164 @@ cdef class MinimizerInfo:
         info.seqId = self.sequence_id
         info.wpos = self.window_position
         return info
+
+
+cdef class Position:
+
+    # --- Attributes ---------------------------------------------------------
+
+    cdef readonly seqno_t  sequence_id
+    cdef readonly offset_t window_position
+
+    # --- Magic methods ------------------------------------------------------
+
+    def __init__(self, seqno_t sequence_id, offset_t window_position):
+        """__init__(self, sequence_id, window_position)\n--
+
+        Create a new `Position` instance with the given parameters.
+
+        """
+        self.sequence_id = sequence_id
+        self.window_position = window_position
+
+    def __repr__(self):
+        cdef str ty = type(self).__name__
+        return "{}(sequence_id={!r}, window_position={!r})".format(
+            ty, self.sequence_id, self.window_position
+        )
+
+    def __eq__(self, Position other):
+        return (
+                self.sequence_id == other.sequence_id
+            and self.window_position == other.window_position
+        )
+
+    def __reduce__(self):
+        return (
+            Position,
+            (self.sequence_id, self.window_position)
+        )
+
+    # --- Methods ------------------------------------------------------------
+
+    @staticmethod
+    cdef Position from_raw(MinimizerMetaData_t raw):
+        return Position(raw.seqId, raw.wpos)
+
+    cdef MinimizerMetaData_t to_raw(self):
+        cdef MinimizerMetaData_t m
+        m.seqId = self.sequence_id
+        m.wpos = self.window_position
+        return m
+
+
+cdef class MinimizerIndex:
+    """The index mapping minimizer hash values to their positions.
+    """
+
+    # --- Attributes ---------------------------------------------------------
+
+    cdef Sketch_t.MI_Map_t* _map
+    cdef object             owner
+
+    # --- Magic methods ------------------------------------------------------
+
+    def __cinit__(self):
+        # create a new Sketch with the parameters
+        self._map = NULL
+        self.owner = None
+
+    def __init__(self):
+        self._map = new Sketch_t.MI_Map_t()
+
+    def __dealloc__(self):
+        if self.owner is None:
+            del self._map
+
+    def __len__(self):
+        assert self._map != NULL
+        return self._map.size()
+
+    def __iter__(self):
+        cdef unordered_map[MinimizerMapKeyType_t, MinimizerMapValueType_t].iterator it
+        it = self._map.begin()
+        while it != self._map.end():
+            yield dereference(it).first
+            preincrement(it)
+
+    def __contains__(self, hash_t item):
+        cdef unordered_map[MinimizerMapKeyType_t, MinimizerMapValueType_t].const_iterator find_it
+        find_it = self._map.const_find(item)
+        return find_it != self._map.end()
+
+    def __getitem__(self, hash_t item):
+        cdef unordered_map[MinimizerMapKeyType_t, MinimizerMapValueType_t].iterator find_it
+        find_it = self._map.find(item)
+        if find_it != self._map.end():
+            return [Position.from_raw(x) for x in dereference(find_it).second]
+        raise KeyError(item)
+
+    def __setitem__(self, hash_t item, object value):
+        # convert value to vector
+        cdef Position position
+        cdef MinimizerMapValueType_t positions = MinimizerMapValueType_t()
+        for position in value:
+            positions.push_back(position.to_raw())
+        # remove previous element if any
+        cdef unordered_map[MinimizerMapKeyType_t, MinimizerMapValueType_t].iterator find_it
+        find_it = self._map.find(item)
+        if find_it != self._map.end():
+            self._map.erase(find_it)
+        # add new element
+        cdef pair[MinimizerMapKeyType_t, MinimizerMapValueType_t] element
+        element.first = item
+        element.second = positions
+        self._map.insert(element)
+
+    def __delitem__(self, hash_t item):
+      # remove previous element if any
+      cdef unordered_map[MinimizerMapKeyType_t, MinimizerMapValueType_t].iterator find_it
+      find_it = self._map.find(item)
+      if find_it != self._map.end():
+          self._map.erase(find_it)
+      else:
+          raise KeyError(item)
+
+    def __reduce__(self):
+        return (
+            MinimizerIndex,
+            (),
+            None,
+            None,
+            self.items(),
+            None
+        )
+
+    # --- Methods ------------------------------------------------------------
+
+    def items(self):
+        cdef MinimizerMetaData_t     pos_raw
+        cdef MinimizerMapKeyType_t   key
+        cdef MinimizerMapValueType_t value
+        cdef size_t                  i
+        cdef list                    positions
+        cdef Position                position
+        cdef unordered_map[MinimizerMapKeyType_t, MinimizerMapValueType_t].iterator it
+
+        it = self._map.begin()
+        while it != self._map.end():
+
+            key = dereference(it).first
+            value = dereference(it).second
+
+            i = 0
+            positions = PyList_New(value.size())
+
+            for pos_raw in value:
+                pos = Position.from_raw(pos_raw)
+                Py_INCREF(pos)
+                PyList_SET_ITEM(positions, i, pos)
+                i += 1
+
+            yield key, positions
+            preincrement(it)
