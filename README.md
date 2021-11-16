@@ -88,10 +88,10 @@ mapper = sketch.index()
 
 # read the query and query the mapper
 query = Bio.SeqIO.read("vendor/FastANI/data/Escherichia_coli_str_K12_MG1655.fna", "fasta")
-hits = m.query_sequence(bytes(query.seq))
+hits = mapper.query_sequence(bytes(query.seq))
 
 for hit in hits:
-    print("E. coli", hit.name, hit.identity, hit.matches, hit.fragments)
+    print("E. coli K12 MG1655", hit.name, hit.identity, hit.matches, hit.fragments)
 ```
 
 ### 🧪 [Scikit-bio](https://github.com/biocore/scikit-bio)
@@ -105,18 +105,19 @@ shows the values as byte strings by default. To make them readable as
 import pyfastani
 import skbio.io
 
-m = pyfastani.Mapper()
+sketch = pyfastani.Sketch()
 
 ref = list(skbio.io.read("vendor/FastANI/data/Shigella_flexneri_2a_01.fna", "fasta"))
-m.add_draft("Shigella_flexneri_2a_01", (seq.values.view('B') for seq in ref))
-m.index()
+sketch.add_draft("Shigella_flexneri_2a_01", (seq.values.view('B') for seq in ref))
+
+mapper = sketch.index()
 
 # read the query and query the mapper
 query = next(skbio.io.read("vendor/FastANI/data/Escherichia_coli_str_K12_MG1655.fna", "fasta"))
-hits = m.query_genome(query.values.view('B'))
+hits = mapper.query_genome(query.values.view('B'))
 
 for hit in hits:
-    print("Escherichia_coli_str_K12_MG1655", hit.name, hit.identity, hit.matches, hit.fragments)
+    print("E. coli K12 MG1655", hit.name, hit.identity, hit.matches, hit.fragments)
 ```
 
 ## 💭 Feedback
