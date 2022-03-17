@@ -17,7 +17,7 @@ cimport libcpp11.chrono
 from cython.operator cimport dereference, preincrement, postincrement
 from cpython.ref cimport Py_INCREF
 from cpython.list cimport PyList_New, PyList_SET_ITEM
-from libc.string cimport memcpy
+from libc.string cimport memcpy, memset
 from libc.limits cimport INT_MAX
 from libc.stdint cimport int64_t, uint64_t
 from libc.stdlib cimport malloc, realloc, free
@@ -69,9 +69,10 @@ import warnings
 
 # --- Constants --------------------------------------------------------------
 
-DEF _MAX_KMER_SIZE = 2048
-MAX_KMER_SIZE = _MAX_KMER_SIZE
+DEF _MAX_KMER_SIZE   = 2048
+DEF _WINDOW_SIZE     = _MAX_KMER_SIZE
 
+MAX_KMER_SIZE = _MAX_KMER_SIZE
 
 # --- Cython helpers ---------------------------------------------------------
 
@@ -134,55 +135,67 @@ cdef int _add_minimizers_nucl(
     cdef deque[pair[MinimizerInfo_t, int64_t]] q
     cdef void*                                 last
     cdef int64_t                               i
+    cdef int64_t                               j
     cdef int64_t                               current_window_id
-    cdef hash_t                                hash_fwd
-    cdef hash_t                                hash_bwd
     cdef hash_t                                current_kmer
     cdef MinimizerInfo_t                       info
-    cdef char                                  fwd[_MAX_KMER_SIZE*2]
-    cdef char                                  bwd[_MAX_KMER_SIZE*2]
-
-    cdef uint64_t n = 0
+    cdef char                                  fwd[_WINDOW_SIZE*2]
+    cdef char                                  bwd[_WINDOW_SIZE*2]
+    cdef hash_t                                hash_fwd
+    cdef hash_t                                hash_bwd
+    cdef hash_t                                hashes_fwd[_WINDOW_SIZE]
+    cdef hash_t                                hashes_bwd[_WINDOW_SIZE]
 
     # initial fill of the buffer for the sequence sliding window
     # supporting any unicode sequence in canonical form (including
     # byte buffers containing ASCII characters)
     _read_nucl(kind, data, slen, 0, fwd, bwd)
 
-    # process all windows of width `kmer_size` in the input sequence
-    for i in range(slen - kmer_size + 1):
-        # if reaching the end of the sliding window, slide buffer
-        # left, and read new block in right side
-        if i % _MAX_KMER_SIZE == 0:
-            memcpy(&fwd[0], &fwd[_MAX_KMER_SIZE], _MAX_KMER_SIZE)
-            memcpy(&bwd[_MAX_KMER_SIZE], &bwd[0], _MAX_KMER_SIZE)
-            _read_nucl(kind, data, slen, i + _MAX_KMER_SIZE, fwd, bwd)
-        # compute forward hash
-        hash_fwd = hasher.hash(<char*> &fwd[i % _MAX_KMER_SIZE], kmer_size)
-        hash_bwd = hasher.hash(<char*> &bwd[2*_MAX_KMER_SIZE - i % _MAX_KMER_SIZE - kmer_size], kmer_size)
-        n += 1
-        # only record asymmetric k-mers
-        if hash_bwd != hash_fwd:
-            # record window size for the minimizer
-            current_window_id = i - window_size + 1
-            # Take minimum value of kmer and its reverse complement
-            current_kmer = min(hash_fwd, hash_bwd)
-            # If front minimum is not in the current window, remove it
-            while not q.empty() and q.front().second <= i - window_size:
-                q.pop_front()
-            # hashes less than equal to current_k;er can be discarded
-            while not q.empty() and q.back().first.hash >= current_kmer:
-                q.pop_back()
-            # push current_kmer and position to back of the queue
-            info.hash = current_kmer
-            info.seqId = seq_counter
-            info.wpos = 0
-            q.push_back(pair[MinimizerInfo_t, int64_t](info, i))
-            # select the minimizer from Q and put into index
-            if current_window_id >= 0:
-                if minimizer_index.empty() or minimizer_index.back() != q.front().first:
-                    q.front().first.wpos = current_window_id
-                    minimizer_index.push_back(q.front().first)
+    # process data block by block
+    for i in range(0, slen - kmer_size + 1, _WINDOW_SIZE):
+        # read next block of data
+        memcpy(&fwd[0], &fwd[_WINDOW_SIZE], _WINDOW_SIZE)
+        memcpy(&bwd[_WINDOW_SIZE], &bwd[0], _WINDOW_SIZE)
+        _read_nucl(kind, data, slen, i + _WINDOW_SIZE, fwd, bwd)
+
+        # compute hashes of all windows of width `kmer_size` within block
+        hasher.hash_block(&fwd[0], kmer_size, _WINDOW_SIZE, &hashes_fwd[0])
+        hasher.hash_block(&bwd[_WINDOW_SIZE + 1 - kmer_size], kmer_size, _WINDOW_SIZE, &hashes_bwd[0])
+        # equivalent to:
+        # for j in range(_WINDOW_SIZE):
+        #     hashes_fwd[j]                    = hasher.hash(&fwd[j], kmer_size)
+        #     hashes_bwd[_WINDOW_SIZE - 1 - j] = hasher.hash(&bwd[2*_WINDOW_SIZE - j - kmer_size], kmer_size)
+
+        # record minimizers within block
+        for j in range(_WINDOW_SIZE):
+            # make sure we didn't reach the end of the sequence
+            if i + j + kmer_size > slen:
+                break
+            # extract hashes for position i+j
+            hash_fwd = hashes_fwd[j]
+            hash_bwd = hashes_bwd[_WINDOW_SIZE - 1 - j]
+            # only record asymmetric k-mers
+            if hash_bwd != hash_fwd:
+                # record window size for the minimizer
+                current_window_id = i + j - window_size + 1
+                # Take minimum value of kmer and its reverse complement
+                current_kmer = min(hash_fwd, hash_bwd)
+                # If front minimum is not in the current window, remove it
+                while not q.empty() and q.front().second <= i + j - window_size:
+                    q.pop_front()
+                # hashes less than equal to current_k;er can be discarded
+                while not q.empty() and q.back().first.hash >= current_kmer:
+                    q.pop_back()
+                # push current_kmer and position to back of the queue
+                info.hash = current_kmer
+                info.seqId = seq_counter
+                info.wpos = 0
+                q.push_back(pair[MinimizerInfo_t, int64_t](info, i + j))
+                # select the minimizer from Q and put into index
+                if current_window_id >= 0:
+                    if minimizer_index.empty() or minimizer_index.back() != q.front().first:
+                        q.front().first.wpos = current_window_id
+                        minimizer_index.push_back(q.front().first)
 
 
 cdef ssize_t _read_prot(
@@ -229,48 +242,53 @@ cdef int _add_minimizers_prot(
 
     """
     cdef deque[pair[MinimizerInfo_t, int64_t]] q
-    cdef void*                                 last
     cdef int64_t                               i
+    cdef int64_t                               j
     cdef int64_t                               current_window_id
     cdef hash_t                                current_kmer
     cdef MinimizerInfo_t                       info
-    cdef char                                  fwd[_MAX_KMER_SIZE*2]
-
-    cdef uint64_t n = 0
+    cdef char                                  fwd[_WINDOW_SIZE*2]
+    cdef hash_t                                hashes[_WINDOW_SIZE]
 
     # initial fill of the buffer for the sequence sliding window
     # supporting any unicode sequence in canonical form (including
     # byte buffers containing ASCII characters)
-    _read_prot(kind, data, slen, 0, fwd)
+    _read_prot(kind, data, slen, 0, &fwd[0])
 
-    # process all windows of width `kmer_size` in the input sequence
-    for i in range(slen - kmer_size + 1):
-        # if reaching the end of the sliding window, slide buffer
-        # left, and read new block in right side
-        if i % _MAX_KMER_SIZE == 0:
-            memcpy(&fwd[0], &fwd[_MAX_KMER_SIZE], _MAX_KMER_SIZE)
-            _read_prot(kind, data, slen, i + _MAX_KMER_SIZE, fwd)
-        # compute forward hash
-        current_kmer = hasher.hash(<char*> &fwd[i % _MAX_KMER_SIZE], kmer_size)
-        n += 1
-        # record window size for the minimizer
-        current_window_id = i - window_size + 1
-        # If front minimum is not in the current window, remove it
-        while not q.empty() and q.front().second <= i - window_size:
-            q.pop_front()
-        # hashes less than equal to current_k;er can be discarded
-        while not q.empty() and q.back().first.hash >= current_kmer:
-            q.pop_back()
-        # push current_kmer and position to back of the queue
-        info.hash = current_kmer
-        info.seqId = seq_counter
-        info.wpos = 0
-        q.push_back(pair[MinimizerInfo_t, int64_t](info, i))
-        # select the minimizer from Q and put into index
-        if current_window_id >= 0:
-            if minimizer_index.empty() or minimizer_index.back() != q.front().first:
-                q.front().first.wpos = current_window_id
-                minimizer_index.push_back(q.front().first)
+    # process data block by block
+    for i in range(0, slen - kmer_size + 1, _WINDOW_SIZE):
+        # read next block of data
+        memcpy(&fwd[0], &fwd[_WINDOW_SIZE], _WINDOW_SIZE)
+        _read_prot(kind, data, slen, i + _WINDOW_SIZE, fwd)
+
+        # compute hashes of all windows of width `kmer_size` within block
+        hasher.hash_block(&fwd[0], kmer_size, _WINDOW_SIZE, &hashes[0])
+
+        # record minimizers within block
+        for j in range(_WINDOW_SIZE):
+            # make sure we didn't reach the end of the sequence
+            if i + j + kmer_size > slen:
+                break
+            # extract hash for position i + j
+            current_kmer = hashes[j]
+            # record window size for the minimizer
+            current_window_id = i + j - window_size + 1
+            # If front minimum is not in the current window, remove it
+            while not q.empty() and q.front().second <= i + j - window_size:
+                q.pop_front()
+            # hashes less than equal to current_k;er can be discarded
+            while not q.empty() and q.back().first.hash >= current_kmer:
+                q.pop_back()
+            # push current_kmer and position to back of the queue
+            info.hash = current_kmer
+            info.seqId = seq_counter
+            info.wpos = 0
+            q.push_back(pair[MinimizerInfo_t, int64_t](info, i + j))
+            # select the minimizer from Q and put into index
+            if current_window_id >= 0:
+                if minimizer_index.empty() or minimizer_index.back() != q.front().first:
+                    q.front().first.wpos = current_window_id
+                    minimizer_index.push_back(q.front().first)
 
 
 # --- Hasher functions -------------------------------------------------------
@@ -281,8 +299,12 @@ ctypedef hash_t (*hash_function_t) (const char*, int)
 cdef class _Hasher:
 
     cdef hash_t hash(self, const char* buffer, const int size) nogil:
-        return 0
+        return getHash(buffer, size)
 
+    cdef void hash_block(self, const char* buffer, const int size, const int length, hash_t* hashes) nogil:
+        cdef int i
+        for i in range(length):
+            hashes[i] = self.hash(&buffer[i], size)
 
 cdef class _DefaultHasher(_Hasher):
 
