@@ -19,8 +19,8 @@ from cpython.ref cimport Py_INCREF
 from cpython.list cimport PyList_New, PyList_SET_ITEM
 from libc.string cimport memcpy, memset
 from libc.limits cimport INT_MAX
-from libc.stdint cimport int64_t, uint64_t
-from libc.stdlib cimport malloc, realloc, free
+from libc.stdint cimport int64_t, uint32_t, uint64_t
+from libc.stdlib cimport malloc, calloc, realloc, free
 from libcpp cimport bool, nullptr
 from libcpp.algorithm cimport sort, unique
 from libcpp.deque cimport deque
@@ -32,6 +32,7 @@ from libcpp.vector cimport vector
 from libcpp11.fstream cimport ofstream
 
 cimport fastani.map.map_stats
+cimport fastani.map.common_func
 from kseq cimport kseq_t, kstring_t
 from fastani.cgi.compute_core_identity cimport computeCGI
 from fastani.cgi.cgid_types cimport CGI_Results
@@ -159,12 +160,12 @@ cdef int _add_minimizers_nucl(
         _read_nucl(kind, data, slen, i + _WINDOW_SIZE, fwd, bwd)
 
         # compute hashes of all windows of width `kmer_size` within block
-        hasher.hash_block(&fwd[0], kmer_size, _WINDOW_SIZE, &hashes_fwd[0])
-        hasher.hash_block(&bwd[_WINDOW_SIZE + 1 - kmer_size], kmer_size, _WINDOW_SIZE, &hashes_bwd[0])
+        hasher._hash_block(&fwd[0], kmer_size, _WINDOW_SIZE, &hashes_fwd[0])
+        hasher._hash_block(&bwd[_WINDOW_SIZE + 1 - kmer_size], kmer_size, _WINDOW_SIZE, &hashes_bwd[0])
         # equivalent to:
         # for j in range(_WINDOW_SIZE):
-        #     hashes_fwd[j]                    = hasher.hash(&fwd[j], kmer_size)
-        #     hashes_bwd[_WINDOW_SIZE - 1 - j] = hasher.hash(&bwd[2*_WINDOW_SIZE - j - kmer_size], kmer_size)
+        #     hashes_fwd[j]                    = hasher._hash(&fwd[j], kmer_size)
+        #     hashes_bwd[_WINDOW_SIZE - 1 - j] = hasher._hash(&bwd[2*_WINDOW_SIZE - j - kmer_size], kmer_size)
 
         # record minimizers within block
         for j in range(_WINDOW_SIZE):
@@ -262,7 +263,7 @@ cdef int _add_minimizers_prot(
         _read_prot(kind, data, slen, i + _WINDOW_SIZE, fwd)
 
         # compute hashes of all windows of width `kmer_size` within block
-        hasher.hash_block(&fwd[0], kmer_size, _WINDOW_SIZE, &hashes[0])
+        hasher._hash_block(&fwd[0], kmer_size, _WINDOW_SIZE, &hashes[0])
 
         # record minimizers within block
         for j in range(_WINDOW_SIZE):
@@ -293,22 +294,35 @@ cdef int _add_minimizers_prot(
 
 # --- Hasher functions -------------------------------------------------------
 
-ctypedef hash_t (*hash_function_t) (const char*, int)
-
-
 cdef class _Hasher:
 
-    cdef hash_t hash(self, const char* buffer, const int size) nogil:
-        return getHash(buffer, size)
+    cdef hash_t _hash(self, const char* buffer, const int size) nogil:
+        return 0 # virtual method
 
-    cdef void hash_block(self, const char* buffer, const int size, const int length, hash_t* hashes) nogil:
+    cdef void _hash_block(self, const char* buffer, const int size, const int length, hash_t* hashes) nogil:
         cdef int i
         for i in range(length):
-            hashes[i] = self.hash(&buffer[i], size)
+            hashes[i] = self._hash(&buffer[i], size)
 
-cdef class _DefaultHasher(_Hasher):
+    def hash(self, const unsigned char[::1] data, unsigned int size=16):
+        return self._hash(<const char*> &data[0], size)
 
-    cdef hash_t hash(self, const char* buffer, const int size) nogil:
+    def hash_block(self, const unsigned char[::1] data, unsigned int size=16):
+        cdef object  output = array.array('L')
+        cdef hash_t* hashes = <hash_t*> calloc(data.shape[0] - size, sizeof(hash_t))
+
+        try:
+            self._hash_block(<const char*> &data[0], size, data.shape[0] - size, hashes)
+            for i in range(data.shape[0] - size):
+                output.append(hashes[i])
+            return output
+        finally:
+            free(hashes)
+
+
+cdef class _Murmur3Hasher(_Hasher):
+
+    cdef hash_t _hash(self, const char* buffer, const int size) nogil:
         return getHash(buffer, size)
 
 
@@ -489,7 +503,7 @@ cdef class Sketch(_Parameterized):
             )
 
         # create hasher
-        self._hasher = _DefaultHasher()
+        self._hasher = _Murmur3Hasher()
 
         # store parameters
         self._param.kmerSize = k
