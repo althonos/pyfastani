@@ -70,7 +70,7 @@ import warnings
 
 # --- Constants --------------------------------------------------------------
 
-DEF _MAX_KMER_SIZE   = 2048
+DEF _MAX_KMER_SIZE   = 4096
 DEF _WINDOW_SIZE     = _MAX_KMER_SIZE
 
 MAX_KMER_SIZE = _MAX_KMER_SIZE
@@ -96,8 +96,8 @@ cdef ssize_t _read_nucl(
     cdef ssize_t length
     cdef char    nuc
 
-    if _MAX_KMER_SIZE <= slen - i:
-        length = _MAX_KMER_SIZE
+    if _WINDOW_SIZE <= slen - i:
+        length = _WINDOW_SIZE
     elif i < slen:
         length = slen - i
     else:
@@ -106,13 +106,13 @@ cdef ssize_t _read_nucl(
     # if UCS-1, bytes are next to each other, so we can use the SIMD
     # implementations to copy into uppercase
     if kind == PyUnicode_1BYTE_KIND:
-        copy_upper(&fwd[_MAX_KMER_SIZE], &(<char*> data)[i], length)
+        copy_upper(&fwd[_WINDOW_SIZE], &(<char*> data)[i], length)
     else:
         for j in range(length):
-            fwd[_MAX_KMER_SIZE + j] = toupper(<int> PyUnicode_READ(kind, data, i + j))
+            fwd[_WINDOW_SIZE + j] = toupper(<int> PyUnicode_READ(kind, data, i + j))
 
     # reverse complement in backward buffer
-    reverse_complement(&bwd[_MAX_KMER_SIZE - length], &fwd[_MAX_KMER_SIZE], length)
+    reverse_complement(&bwd[_WINDOW_SIZE - length], &fwd[_WINDOW_SIZE], length)
 
     return length
 
@@ -160,8 +160,8 @@ cdef int _add_minimizers_nucl(
         _read_nucl(kind, data, slen, i + _WINDOW_SIZE, fwd, bwd)
 
         # compute hashes of all windows of width `kmer_size` within block
-        hasher._hash_block(&fwd[0], kmer_size, _WINDOW_SIZE, &hashes_fwd[0])
-        hasher._hash_block(&bwd[_WINDOW_SIZE + 1 - kmer_size], kmer_size, _WINDOW_SIZE, &hashes_bwd[0])
+        hasher._hash_block(&fwd[0], _WINDOW_SIZE, &hashes_fwd[0])
+        hasher._hash_block(&bwd[_WINDOW_SIZE + 1 - kmer_size], _WINDOW_SIZE, &hashes_bwd[0])
         # equivalent to:
         # for j in range(_WINDOW_SIZE):
         #     hashes_fwd[j]                    = hasher._hash(&fwd[j], kmer_size)
@@ -210,8 +210,8 @@ cdef ssize_t _read_prot(
     cdef ssize_t length
     cdef char    nuc
 
-    if _MAX_KMER_SIZE <= slen - i:
-        length = _MAX_KMER_SIZE
+    if _WINDOW_SIZE <= slen - i:
+        length = _WINDOW_SIZE
     elif i < slen:
         length = slen - i
     else:
@@ -220,10 +220,10 @@ cdef ssize_t _read_prot(
     # if UCS-1, bytes are next to each other, so we can use the SIMD
     # implementations to copy into uppercase
     if kind == PyUnicode_1BYTE_KIND:
-        copy_upper(&fwd[_MAX_KMER_SIZE], &(<char*> data)[i], length)
+        copy_upper(&fwd[_WINDOW_SIZE], &(<char*> data)[i], length)
     else:
         for j in range(length):
-            fwd[_MAX_KMER_SIZE + j] = toupper(<int> PyUnicode_READ(kind, data, i + j))
+            fwd[_WINDOW_SIZE + j] = toupper(<int> PyUnicode_READ(kind, data, i + j))
 
 
 cdef int _add_minimizers_prot(
@@ -263,7 +263,7 @@ cdef int _add_minimizers_prot(
         _read_prot(kind, data, slen, i + _WINDOW_SIZE, fwd)
 
         # compute hashes of all windows of width `kmer_size` within block
-        hasher._hash_block(&fwd[0], kmer_size, _WINDOW_SIZE, &hashes[0])
+        hasher._hash_block(&fwd[0], _WINDOW_SIZE, &hashes[0])
 
         # record minimizers within block
         for j in range(_WINDOW_SIZE):
@@ -296,24 +296,34 @@ cdef int _add_minimizers_prot(
 
 cdef class _Hasher:
 
-    cdef hash_t _hash(self, const char* buffer, const int size) nogil:
+    cdef int  size
+    cdef bint case_sensitive
+
+    def __cinit__(self, const int size):
+        self.size = size
+        self.case_sensitive = True
+
+    def __reduce__(self):
+        return self.__class__, (self.size,)
+
+    cdef hash_t _hash(self, const char* buffer) nogil:
         return 0 # virtual method
 
-    cdef void _hash_block(self, const char* buffer, const int size, const int length, hash_t* hashes) nogil:
+    cdef void _hash_block(self, const char* buffer, const int length, hash_t* hashes) nogil:
         cdef int i
         for i in range(length):
-            hashes[i] = self._hash(&buffer[i], size)
+            hashes[i] = self._hash(&buffer[i])
 
-    def hash(self, const unsigned char[::1] data, unsigned int size=16):
-        return self._hash(<const char*> &data[0], size)
+    def hash(self, const unsigned char[::1] data):
+        return self._hash(<const char*> &data[0])
 
-    def hash_block(self, const unsigned char[::1] data, unsigned int size=16):
+    def hash_block(self, const unsigned char[::1] data):
         cdef object  output = array.array('L')
-        cdef hash_t* hashes = <hash_t*> calloc(data.shape[0] - size, sizeof(hash_t))
+        cdef hash_t* hashes = <hash_t*> calloc(data.shape[0] + 1 - self.size, sizeof(hash_t))
 
         try:
-            self._hash_block(<const char*> &data[0], size, data.shape[0] - size, hashes)
-            for i in range(data.shape[0] - size):
+            self._hash_block(<const char*> &data[0], data.shape[0] + 1 - self.size, hashes)
+            for i in range(data.shape[0] + 1 - self.size):
                 output.append(hashes[i])
             return output
         finally:
@@ -322,8 +332,52 @@ cdef class _Hasher:
 
 cdef class _Murmur3Hasher(_Hasher):
 
-    cdef hash_t _hash(self, const char* buffer, const int size) nogil:
-        return getHash(buffer, size)
+    cdef hash_t _hash(self, const char* buffer) nogil:
+        return getHash(buffer, self.size)
+
+
+cdef class _CuteHasher(_Hasher):
+
+    cdef readonly uint32_t mask
+
+    def __cinit__(self, const int size):
+        cdef int i
+        self.case_sensitive = False
+        self.mask = 0
+        for i in range(size):
+            self.mask |= 0b11 << (2*i)
+
+    def __init__(self, int size):
+        if size > 16:
+            raise ValueError("Cannot use cute hash for k-mers larger than 16 nucleotides")
+
+    cdef void _hash_block(self, const char* buffer, const int length, hash_t* hashes) nogil:
+        cdef int      i
+        cdef char     c
+        cdef int      j = 0
+        cdef uint32_t h = 0
+        if length < self.size:
+            return
+        # compute hash value of the first k-mer
+        for i in range(self.size):
+            c = buffer[i] & 0b00000110
+            h = (h << 2) | (c >> 1)
+        # record first hash
+        hashes[0] = h
+        # for every following hashes, we can compute using a rolling hash
+        for j,i in enumerate(range(self.size, self.size+length)):
+            c = buffer[i] & 0b00000110
+            h = (h << 2) | (c >> 1)
+            hashes[j+1] = h & self.mask
+
+    cdef hash_t _hash(self, const char* buffer) nogil:
+        cdef char     c
+        cdef int      i
+        cdef uint32_t h = 0
+        for i in range(self.size):
+            c = buffer[i] & 0b00000110
+            h = (h << 2) | (c >> 1)
+        return h
 
 
 # --- Cython classes ---------------------------------------------------------
@@ -455,6 +509,7 @@ cdef class Sketch(_Parameterized):
         float percentage_identity=80.0,
         uint64_t reference_size=5_000_000,
         bint protein=False,
+        type hasher_class=_Murmur3Hasher,
     ):
         f"""__init__(self, *, k=16, fragment_length=3000, minimum_fraction=0.2, p_value=1e-03, percentage_identity=80, reference_size=5000000, protein=False)\n--
 
@@ -503,7 +558,7 @@ cdef class Sketch(_Parameterized):
             )
 
         # create hasher
-        self._hasher = _Murmur3Hasher()
+        self._hasher = hasher_class(k)
 
         # store parameters
         self._param.kmerSize = k
