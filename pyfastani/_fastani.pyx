@@ -365,7 +365,7 @@ cdef class _CuteHasher(_Hasher):
         # record first hash
         hashes[0] = h
         # for every following hashes, we can compute using a rolling hash
-        for j,i in enumerate(range(self.size, self.size+length)):
+        for j,i in enumerate(range(self.size, self.size + length - 1)):
             c = buffer[i] & 0b00000110
             h = (h << 2) | (c >> 1)
             hashes[j+1] = h & self.mask
