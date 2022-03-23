@@ -893,11 +893,11 @@ cdef class Mapper(_Parameterized):
         const void* data,
         const ssize_t slen,
         const size_t stride,
+        vector[Map_t.L1_candidateLocus_t]& l1_mappings,
         MappingResultsVector_t& l2_mappings
     ) nogil:
         cdef kseq_t                                         kseq
         cdef QueryMetaData_t[kseq_ptr_t, Map_t.MinVec_Type] query
-        cdef vector[Map_t.L1_candidateLocus_t]              l1_mappings
 
         query.kseq = &kseq
         query.kseq.seq.s = NULL
@@ -929,30 +929,31 @@ cdef class Mapper(_Parameterized):
         assert self._sk != nullptr
 
         # iterators over the contigs
-        cdef int                      i               # fragment counter
-        cdef object                   contig
-        cdef int                      fragment_count
+        cdef int                               i               # fragment counter
+        cdef object                            contig
+        cdef int                               fragment_count
         # bookkeeping
-        cdef uint64_t                 total_fragments = 0
-        cdef uint64_t                 total_length    = 0
+        cdef uint64_t                          total_fragments = 0
+        cdef uint64_t                          total_length    = 0
         # mapping parameters and reference
-        cdef Map_t*                   map
-        cdef Parameters_t*            param           = &self._param
-        cdef Sketch_t*                sketch          = self._sk
+        cdef Map_t*                            map
+        cdef Parameters_t*                     param           = &self._param
+        cdef Sketch_t*                         sketch          = self._sk
         # sequence as a unicode object
-        cdef const unsigned char[::1] view
-        cdef int                      kind
-        cdef void*                    data
-        cdef ssize_t                  slen
-        cdef size_t                   stride
+        cdef const unsigned char[::1]          view
+        cdef int                               kind
+        cdef void*                             data
+        cdef ssize_t                           slen
+        cdef size_t                            stride
         # core genomic identity results
-        cdef MappingResultsVector_t   final_mappings
-        cdef vector[CGI_Results]      results
-        cdef CGI_Results              result
+        cdef vector[Map_t.L1_candidateLocus_t] l1_mappings
+        cdef MappingResultsVector_t            final_mappings
+        cdef vector[CGI_Results]               results
+        cdef CGI_Results                       result
         # filtering and reporing results
-        cdef uint64_t                 min_length
-        cdef uint64_t                 shared_length
-        cdef list                     hits            = []
+        cdef uint64_t                          min_length
+        cdef uint64_t                          shared_length
+        cdef list                              hits            = []
 
         # create a new mapper with the given mapping result vector
         map = new Map_t(param[0], sketch[0], total_fragments, 0)
@@ -994,6 +995,7 @@ cdef class Mapper(_Parameterized):
                     fragment_count = slen // param.minReadLength
                     # map the blocks
                     for i in range(fragment_count):
+                        l1_mappings.clear()
                         Mapper._query_fragment(
                             # classes with configuration
                             param[0],
@@ -1007,6 +1009,8 @@ cdef class Mapper(_Parameterized):
                             data,
                             slen,
                             stride,
+                            # temporary vector
+                            l1_mappings,
                             # result vector
                             final_mappings
                         )
