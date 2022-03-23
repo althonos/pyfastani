@@ -117,6 +117,7 @@ cdef ssize_t _read_nucl(
 
 cdef int _add_minimizers_nucl(
     vector[MinimizerInfo_t] &minimizer_index,
+    _Hasher hasher,
     const int kind,
     const void* data,
     const ssize_t slen,
@@ -157,8 +158,8 @@ cdef int _add_minimizers_nucl(
             memcpy(&bwd[_MAX_KMER_SIZE], &bwd[0], _MAX_KMER_SIZE)
             _read_nucl(kind, data, slen, i + _MAX_KMER_SIZE, fwd, bwd)
         # compute forward hash
-        hash_fwd = getHash(<char*> &fwd[i % _MAX_KMER_SIZE], kmer_size)
-        hash_bwd = getHash(<char*> &bwd[2*_MAX_KMER_SIZE - i % _MAX_KMER_SIZE - kmer_size], kmer_size)
+        hash_fwd = hasher.hash(<char*> &fwd[i % _MAX_KMER_SIZE], kmer_size)
+        hash_bwd = hasher.hash(<char*> &bwd[2*_MAX_KMER_SIZE - i % _MAX_KMER_SIZE - kmer_size], kmer_size)
         n += 1
         # only record asymmetric k-mers
         if hash_bwd != hash_fwd:
@@ -213,6 +214,7 @@ cdef ssize_t _read_prot(
 
 cdef int _add_minimizers_prot(
     vector[MinimizerInfo_t] &minimizer_index,
+    _Hasher hasher,
     const int kind,
     const void* data,
     const ssize_t slen,
@@ -249,7 +251,7 @@ cdef int _add_minimizers_prot(
             memcpy(&fwd[0], &fwd[_MAX_KMER_SIZE], _MAX_KMER_SIZE)
             _read_prot(kind, data, slen, i + _MAX_KMER_SIZE, fwd)
         # compute forward hash
-        current_kmer = getHash(<char*> &fwd[i % _MAX_KMER_SIZE], kmer_size)
+        current_kmer = hasher.hash(<char*> &fwd[i % _MAX_KMER_SIZE], kmer_size)
         n += 1
         # record window size for the minimizer
         current_window_id = i - window_size + 1
@@ -269,6 +271,23 @@ cdef int _add_minimizers_prot(
             if minimizer_index.empty() or minimizer_index.back() != q.front().first:
                 q.front().first.wpos = current_window_id
                 minimizer_index.push_back(q.front().first)
+
+
+# --- Hasher functions -------------------------------------------------------
+
+ctypedef hash_t (*hash_function_t) (const char*, int)
+
+
+cdef class _Hasher:
+
+    cdef hash_t hash(self, const char* buffer, const int size) nogil:
+        return 0
+
+
+cdef class _DefaultHasher(_Hasher):
+
+    cdef hash_t hash(self, const char* buffer, const int size) nogil:
+        return getHash(buffer, size)
 
 
 # --- Cython classes ---------------------------------------------------------
@@ -376,6 +395,7 @@ cdef class Sketch(_Parameterized):
     cdef          vector[uint64_t] _lengths     # array mapping each genome to its length
     cdef          list             _names       # list mapping each genome to its name
     cdef readonly Minimizers        minimizers  # a view over the minimizers
+    cdef readonly _Hasher          _hasher   # hash function
 
     # --- Magic methods ------------------------------------------------------
 
@@ -446,6 +466,9 @@ cdef class Sketch(_Parameterized):
                 UserWarning,
             )
 
+        # create hasher
+        self._hasher = _DefaultHasher()
+
         # store parameters
         self._param.kmerSize = k
         self._param.minReadLength = fragment_length
@@ -478,6 +501,7 @@ cdef class Sketch(_Parameterized):
     def __getstate__(self):
         return {
             "parameters": _Parameterized.__getstate__(self),
+            "hasher": self._hasher,
             "counter": self._counter,
             "lengths": list(self._lengths),
             "names": list(self._names),
@@ -492,6 +516,7 @@ cdef class Sketch(_Parameterized):
         self._counter = state["counter"]
         self._lengths = state["lengths"]
         self._names = state["names"]
+        self._hasher = state["hasher"]
 
         self._sk.sequencesByFileInfo = state["sketch"]["sequencesByFileInfo"]
         self.minimizers.__setstate__(state["sketch"]["minimizers"])
@@ -560,6 +585,7 @@ cdef class Sketch(_Parameterized):
                     if param.alphabetSize == 4:
                         _add_minimizers_nucl(
                             self._sk.minimizerIndex,
+                            self._hasher,
                             kind,
                             data,
                             slen,
@@ -570,6 +596,7 @@ cdef class Sketch(_Parameterized):
                     else:
                         _add_minimizers_prot(
                             self._sk.minimizerIndex,
+                            self._hasher,
                             kind,
                             data,
                             slen,
@@ -703,6 +730,7 @@ cdef class Sketch(_Parameterized):
         mapper._sk = self._sk
         mapper._names = self._names.copy()
         mapper._lengths.swap(self._lengths)
+        mapper._hasher = self._hasher
         # set the minimizers
         mapper.minimizers = Minimizers.__new__(Minimizers)
         mapper.minimizers._owner = mapper
@@ -730,6 +758,7 @@ cdef class Mapper(_Parameterized):
     cdef          vector[uint64_t] _lengths
     cdef          list             _names
     cdef readonly Minimizers       minimizers
+    cdef readonly _Hasher          _hasher
 
     # --- Magic methods ------------------------------------------------------
 
@@ -752,6 +781,7 @@ cdef class Mapper(_Parameterized):
             "parameters": _Parameterized.__getstate__(self),
             "lengths": list(self._lengths),
             "names": list(self._names),
+            "hasher": self._hasher,
             "sketch": {
                 "sequencesByFileInfo": list(self._sk.sequencesByFileInfo),
                 "minimizers": self.minimizers.__getstate__(),
@@ -764,6 +794,7 @@ cdef class Mapper(_Parameterized):
         _Parameterized.__setstate__(self, state["parameters"])
         self._lengths = state["lengths"]
         self._names = state["names"]
+        self._hasher = state["hasher"]
 
         self._sk.minimizerFreqHistogram = state["sketch"]["minimizerFreqHistogram"]
         self._sk.sequencesByFileInfo = state["sketch"]["sequencesByFileInfo"]
@@ -806,6 +837,7 @@ cdef class Mapper(_Parameterized):
         const ssize_t slen,
         QueryMetaData_t[kseq_ptr_t, vector[MinimizerInfo_t]]& query,
         vector[Map_t.L1_candidateLocus_t]& l1_mappings,
+        _Hasher hasher,
     ) nogil:
         """Compute L1 mappings for the given sequence block.
 
@@ -823,6 +855,7 @@ cdef class Mapper(_Parameterized):
         if param.alphabetSize == 4:
             _add_minimizers_nucl(
                query.minimizerTableQuery,
+               hasher,
                kind,
                data,
                slen,
@@ -833,6 +866,7 @@ cdef class Mapper(_Parameterized):
         else:
             _add_minimizers_prot(
                query.minimizerTableQuery,
+               hasher,
                kind,
                data,
                slen,
@@ -879,7 +913,8 @@ cdef class Mapper(_Parameterized):
         const ssize_t slen,
         const size_t stride,
         vector[Map_t.L1_candidateLocus_t]& l1_mappings,
-        MappingResultsVector_t& l2_mappings
+        MappingResultsVector_t& l2_mappings,
+        _Hasher hasher,
     ) nogil:
         cdef kseq_t                                         kseq
         cdef QueryMetaData_t[kseq_ptr_t, Map_t.MinVec_Type] query
@@ -901,6 +936,8 @@ cdef class Mapper(_Parameterized):
             # outputs
             query,
             l1_mappings,
+            # hasher
+            hasher,
         )
 
         map.doL2Mapping(query, l1_mappings, l2_mappings)
@@ -997,7 +1034,9 @@ cdef class Mapper(_Parameterized):
                             # temporary vector
                             l1_mappings,
                             # result vector
-                            final_mappings
+                            final_mappings,
+                            # hasher
+                            self._hasher,
                         )
                     # record the number of fragments
                     total_fragments += fragment_count
