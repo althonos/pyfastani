@@ -137,6 +137,7 @@ cdef int _add_minimizers_nucl(
     cdef void*                                 last
     cdef int64_t                               i
     cdef int64_t                               j
+    cdef int64_t                               block_size
     cdef int64_t                               current_window_id
     cdef hash_t                                current_kmer
     cdef MinimizerInfo_t                       info
@@ -153,7 +154,7 @@ cdef int _add_minimizers_nucl(
     _read_nucl(kind, data, slen, 0, fwd, bwd)
 
     # process data block by block
-    for i in range(0, slen - kmer_size + 1, _WINDOW_SIZE):
+    for i in range(0, slen + 1 - kmer_size, _WINDOW_SIZE):
         # read next block of data
         memcpy(&fwd[0], &fwd[_WINDOW_SIZE], _WINDOW_SIZE)
         memcpy(&bwd[_WINDOW_SIZE], &bwd[0], _WINDOW_SIZE)
@@ -163,15 +164,13 @@ cdef int _add_minimizers_nucl(
         hasher._hash_block(&fwd[0], _WINDOW_SIZE, &hashes_fwd[0])
         hasher._hash_block(&bwd[_WINDOW_SIZE + 1 - kmer_size], _WINDOW_SIZE, &hashes_bwd[0])
         # equivalent to:
-        # for j in range(_WINDOW_SIZE):
-        #     hashes_fwd[j]                    = hasher._hash(&fwd[j], kmer_size)
-        #     hashes_bwd[_WINDOW_SIZE - 1 - j] = hasher._hash(&bwd[2*_WINDOW_SIZE - j - kmer_size], kmer_size)
+        # for j in range(block_size):
+        #     hashes_fwd[j]                  = hasher._hash(&fwd[j], kmer_size)
+        #     hashes_bwd[block_size - 1 - j] = hasher._hash(&bwd[2*block_size - j - kmer_size], kmer_size)
 
         # record minimizers within block
-        for j in range(_WINDOW_SIZE):
-            # make sure we didn't reach the end of the sequence
-            if i + j + kmer_size > slen:
-                break
+        block_size = min(_WINDOW_SIZE, slen + 1 - kmer_size - i)
+        for j in range(block_size):
             # extract hashes for position i+j
             hash_fwd = hashes_fwd[j]
             hash_bwd = hashes_bwd[_WINDOW_SIZE - 1 - j]
