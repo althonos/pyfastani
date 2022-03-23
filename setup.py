@@ -466,8 +466,11 @@ extensions = [
         [os.path.join("pyfastani", x) for x in ("_utils.cpp", "omp.cpp", "_fastani.pyx")],
         language="c++",
         include_dirs=["include", "pyfastani", os.path.join("pyfastani", "_sequtils")],
-        define_macros=[("USE_BOOST", 1)], # used to compile FastANI without GSL
-        libraries=["sequtils"]
+        libraries=["sequtils"],
+        define_macros=[
+            ("USE_BOOST", 1), # used to compile FastANI without GSL
+            ("BOOST_NO_EXCEPTIONS", 1), # don't raise overflow errors
+        ],
     ),
     Extension(
         "pyfastani._fasta",
