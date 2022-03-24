@@ -34,9 +34,10 @@ class _TestANI(object):
         # data/Shigella_flexneri_2a_01.fna data/Escherichia_coli_str_K12_MG1655.fna 97.7507 1303 1608
 
         sketch = Sketch()
-
-        ref = self._load_fasta(ECOLI)
-        sketch.add_genome("Escherichia_coli_str_K12_MG1655", self._get_sequence(ref[0]))
+        sketch.add_draft(
+            "Escherichia_coli_str_K12_MG1655",
+            [self._get_sequence(r) for r in self._load_fasta(ECOLI)]
+        )
 
         mapper = sketch.index()
 
@@ -49,9 +50,49 @@ class _TestANI(object):
         self.assertEqual(hits[0].fragments, 1608)
         self.assertAlmostEqual(hits[0].identity, 97.7507, places=4)
 
-    @unittest.skipUnless(os.path.exists(BGC0001425), "missing FastANI data files")
-    @unittest.skipUnless(os.path.exists(BGC0001427), "missing FastANI data files")
-    @unittest.skipUnless(os.path.exists(BGC0001428), "missing FastANI data files")
+    @unittest.skipUnless(os.path.exists(ECOLI), "missing FastANI data files")
+    def test_escherichia_minimizers(self):
+        """Check that we extract as many minimizers as FastANI on their data.
+        """
+        contigs = [self._get_sequence(r) for r in self._load_fasta(ECOLI)]
+
+        sketch = Sketch()
+        self.assertEqual(sketch.window_size, 24)
+        sketch.add_draft("Escherichia_coli_str_K12_MG1655", contigs)
+        self.assertEqual(len(sketch.minimizers), 371301)
+        mapper = sketch.index()
+        self.assertEqual(len(mapper.lookup_index), 361568)
+
+        hits = mapper.query_draft(contigs)
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0].name, "Escherichia_coli_str_K12_MG1655")
+        self.assertEqual(hits[0].matches, 1547)
+        self.assertEqual(hits[0].fragments, 1547)
+        self.assertAlmostEqual(hits[0].identity, 100.0)
+
+    @unittest.skipUnless(os.path.exists(SFLEXNERI), "missing FastANI data files")
+    def test_shigella_minimizers(self):
+        """Check that we extract as many minimizers as FastANI on their data.
+        """
+        contigs = [self._get_sequence(r) for r in self._load_fasta(SFLEXNERI)]
+
+        sketch = Sketch()
+        self.assertEqual(sketch.window_size, 24)
+        sketch.add_draft("Shigella_flexneri_2a_01", contigs)
+        self.assertEqual(len(sketch.minimizers), 386387)
+        mapper = sketch.index()
+        self.assertEqual(len(mapper.lookup_index), 347908)
+
+        hits = mapper.query_draft(contigs)
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0].name, "Shigella_flexneri_2a_01")
+        self.assertEqual(hits[0].matches, 1600)
+        self.assertEqual(hits[0].fragments, 1608)
+        self.assertAlmostEqual(hits[0].identity, 100.0)
+
+    @unittest.skipUnless(os.path.exists(BGC0001425), "missing test data files")
+    @unittest.skipUnless(os.path.exists(BGC0001427), "missing test data files")
+    @unittest.skipUnless(os.path.exists(BGC0001428), "missing test data files")
     def test_myxochromide_bgcs(self):
         """Check that we get expected hits between homologous BGCs.
         """
@@ -72,8 +113,6 @@ class _TestANI(object):
         self.assertEqual(hits[1].name, "BGC0001427")
         self.assertEqual(hits[1].matches, 130)
         self.assertEqual(hits[1].fragments, 176)
-
-
 
 
 class TestANIString(_TestANI, unittest.TestCase):
