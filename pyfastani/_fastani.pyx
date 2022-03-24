@@ -77,6 +77,9 @@ MAX_KMER_SIZE = _MAX_KMER_SIZE
 
 # --- Cython helpers ---------------------------------------------------------
 
+cdef hash_t _complement_hash(hash_t h) nogil:
+    return h ^ 0xAAAAAAAALLU
+
 cdef ssize_t _read_nucl(
     const int kind,
     const void* data,
@@ -117,87 +120,6 @@ cdef ssize_t _read_nucl(
     return length
 
 
-cdef int _add_minimizers_nucl(
-    vector[MinimizerInfo_t] &minimizer_index,
-    _Hasher hasher,
-    const int kind,
-    const void* data,
-    const ssize_t slen,
-    const int kmer_size,
-    const int window_size,
-    const seqno_t seq_counter,
-) nogil except 1:
-    """Add the minimizers for a single contig to the sketcher.
-
-    Adapted from the ``skch::commonFunc::addMinimizers`` method in
-    ``commonFunc.hpp`` to work without the ``kseq`` I/O.
-
-    """
-    cdef deque[pair[MinimizerInfo_t, int64_t]] q
-    cdef void*                                 last
-    cdef int64_t                               i
-    cdef int64_t                               j
-    cdef int64_t                               block_size
-    cdef int64_t                               current_window_id
-    cdef hash_t                                current_kmer
-    cdef MinimizerInfo_t                       info
-    cdef char                                  fwd[_WINDOW_SIZE*2]
-    cdef char                                  bwd[_WINDOW_SIZE*2]
-    cdef hash_t                                hash_fwd
-    cdef hash_t                                hash_bwd
-    cdef hash_t                                hashes_fwd[_WINDOW_SIZE]
-    cdef hash_t                                hashes_bwd[_WINDOW_SIZE]
-
-    # initial fill of the buffer for the sequence sliding window
-    # supporting any unicode sequence in canonical form (including
-    # byte buffers containing ASCII characters)
-    _read_nucl(kind, data, slen, 0, fwd, bwd)
-
-    # process data block by block
-    for i in range(0, slen + 1 - kmer_size, _WINDOW_SIZE):
-        # read next block of data
-        memcpy(&fwd[0], &fwd[_WINDOW_SIZE], _WINDOW_SIZE)
-        memcpy(&bwd[_WINDOW_SIZE], &bwd[0], _WINDOW_SIZE)
-        _read_nucl(kind, data, slen, i + _WINDOW_SIZE, fwd, bwd)
-
-        # compute hashes of all windows of width `kmer_size` within block
-        hasher._hash_block(&fwd[0], _WINDOW_SIZE, &hashes_fwd[0])
-        hasher._hash_block(&bwd[_WINDOW_SIZE + 1 - kmer_size], _WINDOW_SIZE, &hashes_bwd[0])
-        # equivalent to:
-        # for j in range(block_size):
-        #     hashes_fwd[j]                  = hasher._hash(&fwd[j], kmer_size)
-        #     hashes_bwd[block_size - 1 - j] = hasher._hash(&bwd[2*block_size - j - kmer_size], kmer_size)
-
-        # record minimizers within block
-        block_size = min(_WINDOW_SIZE, slen + 1 - kmer_size - i)
-        for j in range(block_size):
-            # extract hashes for position i+j
-            hash_fwd = hashes_fwd[j]
-            hash_bwd = hashes_bwd[_WINDOW_SIZE - 1 - j]
-            # only record asymmetric k-mers
-            if hash_bwd != hash_fwd:
-                # record window size for the minimizer
-                current_window_id = i + j - window_size + 1
-                # Take minimum value of kmer and its reverse complement
-                current_kmer = min(hash_fwd, hash_bwd)
-                # If front minimum is not in the current window, remove it
-                while not q.empty() and q.front().second <= i + j - window_size:
-                    q.pop_front()
-                # hashes less than equal to current_k;er can be discarded
-                while not q.empty() and q.back().first.hash >= current_kmer:
-                    q.pop_back()
-                # push current_kmer and position to back of the queue
-                info.hash = current_kmer
-                info.seqId = seq_counter
-                info.wpos = 0
-                q.push_back(pair[MinimizerInfo_t, int64_t](info, i + j))
-                # select the minimizer from Q and put into index
-                if current_window_id >= 0:
-                    if minimizer_index.empty() or minimizer_index.back() != q.front().first:
-                        q.front().first.wpos = current_window_id
-                        minimizer_index.push_back(q.front().first)
-
-
 cdef ssize_t _read_prot(
     const int kind,
     const void* data,
@@ -227,7 +149,7 @@ cdef ssize_t _read_prot(
 
 cdef int _add_minimizers_prot(
     vector[MinimizerInfo_t] &minimizer_index,
-    _Hasher hasher,
+    Hasher hasher,
     const int kind,
     const void* data,
     const ssize_t slen,
@@ -293,10 +215,12 @@ cdef int _add_minimizers_prot(
 
 # --- Hasher functions -------------------------------------------------------
 
-cdef class _Hasher:
+cdef class Hasher:
 
     cdef int  size
     cdef bint case_sensitive
+
+    # --- Magic methods ------------------------------------------------------
 
     def __cinit__(self, const int size):
         self.size = size
@@ -305,6 +229,8 @@ cdef class _Hasher:
     def __reduce__(self):
         return self.__class__, (self.size,)
 
+    # --- C methods ----------------------------------------------------------
+
     cdef hash_t _hash(self, const char* buffer) nogil:
         return 0 # virtual method
 
@@ -312,6 +238,88 @@ cdef class _Hasher:
         cdef int i
         for i in range(length):
             hashes[i] = self._hash(&buffer[i])
+
+    cdef int _add_minimizers_nucl(
+        self,
+        vector[MinimizerInfo_t] &minimizer_index,
+        const int kind,
+        const void* data,
+        const ssize_t slen,
+        const int kmer_size,
+        const int window_size,
+        const seqno_t seq_counter,
+    ) nogil except 1:
+        """Add the minimizers for a single contig to the sketcher.
+
+        Adapted from the ``skch::commonFunc::addMinimizers`` method in
+        ``commonFunc.hpp`` to work without the ``kseq`` I/O.
+
+        """
+        cdef deque[pair[MinimizerInfo_t, int64_t]] q
+        cdef void*                                 last
+        cdef int64_t                               i
+        cdef int64_t                               j
+        cdef int64_t                               block_size
+        cdef int64_t                               current_window_id
+        cdef hash_t                                current_kmer
+        cdef MinimizerInfo_t                       info
+        cdef char                                  fwd[_WINDOW_SIZE*2]
+        cdef char                                  bwd[_WINDOW_SIZE*2]
+        cdef hash_t                                hash_fwd
+        cdef hash_t                                hash_bwd
+        cdef hash_t                                hashes_fwd[_WINDOW_SIZE]
+        cdef hash_t                                hashes_bwd[_WINDOW_SIZE]
+
+        # initial fill of the buffer for the sequence sliding window
+        # supporting any unicode sequence in canonical form (including
+        # byte buffers containing ASCII characters)
+        _read_nucl(kind, data, slen, 0, fwd, bwd)
+
+        # process data block by block
+        for i in range(0, slen + 1 - kmer_size, _WINDOW_SIZE):
+            # read next block of data
+            memcpy(&fwd[0], &fwd[_WINDOW_SIZE], _WINDOW_SIZE)
+            memcpy(&bwd[_WINDOW_SIZE], &bwd[0], _WINDOW_SIZE)
+            _read_nucl(kind, data, slen, i + _WINDOW_SIZE, fwd, bwd)
+
+            # compute hashes of all windows of width `kmer_size` within block
+            self._hash_block(&fwd[0], _WINDOW_SIZE, &hashes_fwd[0])
+            self._hash_block(&bwd[_WINDOW_SIZE + 1 - kmer_size], _WINDOW_SIZE, &hashes_bwd[0])
+            # equivalent to:
+            # for j in range(block_size):
+            #     hashes_fwd[j]                  = hasher._hash(&fwd[j], kmer_size)
+            #     hashes_bwd[block_size - 1 - j] = hasher._hash(&bwd[2*block_size - j - kmer_size], kmer_size)
+
+            # record minimizers within block
+            block_size = min(_WINDOW_SIZE, slen + 1 - kmer_size - i)
+            for j in range(block_size):
+                # extract hashes for position i+j
+                hash_fwd = hashes_fwd[j]
+                hash_bwd = hashes_bwd[_WINDOW_SIZE - 1 - j]
+                # only record asymmetric k-mers
+                if hash_bwd != hash_fwd:
+                    # record window size for the minimizer
+                    current_window_id = i + j - window_size + 1
+                    # Take minimum value of kmer and its reverse complement
+                    current_kmer = min(hash_fwd, hash_bwd)
+                    # If front minimum is not in the current window, remove it
+                    while not q.empty() and q.front().second <= i + j - window_size:
+                        q.pop_front()
+                    # hashes less than equal to current_k;er can be discarded
+                    while not q.empty() and q.back().first.hash >= current_kmer:
+                        q.pop_back()
+                    # push current_kmer and position to back of the queue
+                    info.hash = current_kmer
+                    info.seqId = seq_counter
+                    info.wpos = 0
+                    q.push_back(pair[MinimizerInfo_t, int64_t](info, i + j))
+                    # select the minimizer from Q and put into index
+                    if current_window_id >= 0:
+                        if minimizer_index.empty() or minimizer_index.back() != q.front().first:
+                            q.front().first.wpos = current_window_id
+                            minimizer_index.push_back(q.front().first)
+
+    # --- Python methods -----------------------------------------------------
 
     def hash(self, const unsigned char[::1] data):
         return self._hash(<const char*> &data[0])
@@ -329,15 +337,17 @@ cdef class _Hasher:
             free(hashes)
 
 
-cdef class _Murmur3Hasher(_Hasher):
+cdef class Murmur3Hasher(Hasher):
 
     cdef hash_t _hash(self, const char* buffer) nogil:
         return getHash(buffer, self.size)
 
 
-cdef class _CuteHasher(_Hasher):
+cdef class CuteHasher(Hasher):
 
     cdef readonly uint32_t mask
+
+    # --- Magic methods ------------------------------------------------------
 
     def __cinit__(self, const int size):
         cdef int i
@@ -349,6 +359,8 @@ cdef class _CuteHasher(_Hasher):
     def __init__(self, int size):
         if size > 16:
             raise ValueError("Cannot use cute hash for k-mers larger than 16 nucleotides")
+
+    # --- C methods ----------------------------------------------------------
 
     cdef void _hash_block(self, const char* buffer, const int length, hash_t* hashes) nogil:
         cdef int      i
@@ -378,6 +390,93 @@ cdef class _CuteHasher(_Hasher):
             h = (h << 2) | (c >> 1)
         return h
 
+    cdef hash_t _hash_str(self, const int kind, const void* data) nogil:
+        cdef char     c
+        cdef int      i
+        cdef uint32_t h = 0
+        for i in range(self.size):
+            c = <char> PyUnicode_READ(kind, data, i) & 0b00000110
+            h = (h << 2) | (c >> 1)
+        return h
+
+    cdef int _add_minimizers_nucl(
+        self,
+        vector[MinimizerInfo_t] &minimizer_index,
+        const int kind,
+        const void* data,
+        const ssize_t slen,
+        const int kmer_size,
+        const int window_size,
+        const seqno_t seq_counter,
+    ) nogil except 1:
+        """Add the minimizers for a single contig to the sketcher.
+
+        Adapted from the ``skch::commonFunc::addMinimizers`` method in
+        ``commonFunc.hpp`` to work without the ``kseq`` I/O.
+
+        """
+        cdef deque[pair[MinimizerInfo_t, int64_t]] q
+        cdef void*                                 last
+        cdef int64_t                               i
+        cdef int64_t                               j
+        cdef int64_t                               block_size
+        cdef int64_t                               current_window_id
+        cdef hash_t                                current_kmer
+        cdef MinimizerInfo_t                       info
+        cdef char                                  c
+
+        cdef hash_t                                hash_bwd
+        cdef hash_t                                hash_fwd  = 0
+        cdef hash_t                                hash_rev  = 0
+        cdef ssize_t                               shift_fwd = 1
+        cdef ssize_t                               shift_rev = 2*self.size - 3
+
+        # cdef int64_t stride
+        # if kind == PyUnicode_1BYTE_KIND:
+        #     stride = 1
+        # elif kind == PyUnicode_2BYTE_KIND:
+        #     stride = 2
+        # elif kind == PyUnicode_4BYTE_KIND:
+        #     stride = 4
+        # else:
+        #     raise ValueError("invalid stride")
+
+        if slen < self.size:
+            return 0
+
+        for i in range(self.size - 1):
+            c = <char> PyUnicode_READ(kind, data, i) & 0b00000110
+            hash_fwd = (hash_fwd << 2) | (c >> shift_fwd)
+            hash_rev = (hash_rev >> 2) | (c << shift_rev)
+
+        for i in range(self.size - 1, slen):
+            # update to next hash
+            c = <char> PyUnicode_READ(kind, data, i) & 0b00000110
+            hash_fwd = (hash_fwd << 2) | (c >> shift_fwd)
+            hash_rev = (hash_rev >> 2) | (c << shift_rev)
+            hash_bwd = _complement_hash(hash_rev) & self.mask
+            # only record asymmetric k-mers
+            if hash_bwd != hash_fwd:
+                # record window size for the minimizer
+                current_window_id = i + 1 - self.size - window_size + 1
+                # Take minimum value of kmer and its reverse complement
+                current_kmer = min(hash_fwd, hash_bwd)
+                # If front minimum is not in the current window, remove it
+                while not q.empty() and q.front().second <= i + 1 - self.size - window_size:
+                    q.pop_front()
+                # hashes less than equal to current_k;er can be discarded
+                while not q.empty() and q.back().first.hash >= current_kmer:
+                    q.pop_back()
+                # push current_kmer and position to back of the queue
+                info.hash = current_kmer
+                info.seqId = seq_counter
+                info.wpos = 0
+                q.push_back(pair[MinimizerInfo_t, int64_t](info, i + 1 - self.size))
+                # select the minimizer from Q and put into index
+                if current_window_id >= 0:
+                    if minimizer_index.empty() or minimizer_index.back() != q.front().first:
+                        q.front().first.wpos = current_window_id
+                        minimizer_index.push_back(q.front().first)
 
 # --- Cython classes ---------------------------------------------------------
 
@@ -484,7 +583,7 @@ cdef class Sketch(_Parameterized):
     cdef          vector[uint64_t] _lengths     # array mapping each genome to its length
     cdef          list             _names       # list mapping each genome to its name
     cdef readonly Minimizers        minimizers  # a view over the minimizers
-    cdef readonly _Hasher          _hasher   # hash function
+    cdef readonly Hasher           _hasher      # hash function
 
     # --- Magic methods ------------------------------------------------------
 
@@ -508,7 +607,7 @@ cdef class Sketch(_Parameterized):
         float percentage_identity=80.0,
         uint64_t reference_size=5_000_000,
         bint protein=False,
-        type hasher_class=_Murmur3Hasher,
+        type hasher=Murmur3Hasher,
     ):
         f"""__init__(self, *, k=16, fragment_length=3000, minimum_fraction=0.2, p_value=1e-03, percentage_identity=80, reference_size=5000000, protein=False)\n--
 
@@ -557,7 +656,7 @@ cdef class Sketch(_Parameterized):
             )
 
         # create hasher
-        self._hasher = hasher_class(k)
+        self._hasher = hasher(k)
 
         # store parameters
         self._param.kmerSize = k
@@ -673,9 +772,8 @@ cdef class Sketch(_Parameterized):
             if slen >= param.windowSize and slen >= param.kmerSize:
                 with nogil:
                     if param.alphabetSize == 4:
-                        _add_minimizers_nucl(
+                        self._hasher._add_minimizers_nucl(
                             self._sk.minimizerIndex,
-                            self._hasher,
                             kind,
                             data,
                             slen,
@@ -848,7 +946,7 @@ cdef class Mapper(_Parameterized):
     cdef          vector[uint64_t] _lengths
     cdef          list             _names
     cdef readonly Minimizers       minimizers
-    cdef readonly _Hasher          _hasher
+    cdef readonly Hasher           _hasher
 
     # --- Magic methods ------------------------------------------------------
 
@@ -927,7 +1025,7 @@ cdef class Mapper(_Parameterized):
         const ssize_t slen,
         QueryMetaData_t[kseq_ptr_t, vector[MinimizerInfo_t]]& query,
         vector[Map_t.L1_candidateLocus_t]& l1_mappings,
-        _Hasher hasher,
+        Hasher hasher,
     ) nogil:
         """Compute L1 mappings for the given sequence block.
 
@@ -943,9 +1041,8 @@ cdef class Mapper(_Parameterized):
 
         # compute minimizers
         if param.alphabetSize == 4:
-            _add_minimizers_nucl(
+            hasher._add_minimizers_nucl(
                query.minimizerTableQuery,
-               hasher,
                kind,
                data,
                slen,
@@ -1004,7 +1101,7 @@ cdef class Mapper(_Parameterized):
         const size_t stride,
         vector[Map_t.L1_candidateLocus_t]& l1_mappings,
         MappingResultsVector_t& l2_mappings,
-        _Hasher hasher,
+        Hasher hasher,
     ) nogil:
         cdef kseq_t                                         kseq
         cdef QueryMetaData_t[kseq_ptr_t, Map_t.MinVec_Type] query
