@@ -1,6 +1,13 @@
 # coding: utf-8
 # cython: language_level=3, linetrace=True, language=cpp, binding=False
 """Bindings to FastANI, a method for fast whole-genome similarity estimation.
+
+References:
+    - Jain C, Rodriguez-R LM, Phillippy AM, Konstantinidis KT, Aluru S.
+      *High throughput ANI analysis of 90K prokaryotic genomes reveals clear
+      species boundaries*. Nat Commun. 2018 Nov 30;9(1):5114.
+      :doi:`10.1038/s41467-018-07641-9`. :PMID:`30504855`. :PMC:`PMC6269478`.
+
 """
 
 # --- C imports --------------------------------------------------------------
@@ -57,6 +64,7 @@ from _sequtils cimport copy_upper, reverse_complement
 
 # --- Python imports ---------------------------------------------------------
 
+import array
 import warnings
 
 # --- Constants --------------------------------------------------------------
@@ -354,20 +362,30 @@ cdef class _Parameterized:
 @cython.final
 cdef class Sketch(_Parameterized):
     """An index computing minimizers over the reference genomes.
+
+    Attributes:
+        minimizers (`~pyfastani.Minimizers`): A view over the minimizers
+            currently recorded in the sketch.
+
     """
 
     # --- Attributes ---------------------------------------------------------
 
-    cdef Sketch_t*        _sk       # the internal Sketch_t
-    cdef size_t           _counter  # the number of contigs (not genomes)
-    cdef vector[uint64_t] _lengths  # array mapping each genome to its length
-    cdef list             _names    # list mapping each genome to its name
+    cdef          Sketch_t*        _sk          # the internal Sketch_t
+    cdef          size_t           _counter     # the number of contigs (not genomes)
+    cdef          vector[uint64_t] _lengths     # array mapping each genome to its length
+    cdef          list             _names       # list mapping each genome to its name
+    cdef readonly Minimizers        minimizers  # a view over the minimizers
 
     # --- Magic methods ------------------------------------------------------
 
     def __cinit__(self):
         # create a new Sketch with the parameters
         self._sk = new Sketch_t(self._param)
+        # create the minimizers view
+        self.minimizers = Minimizers()
+        self.minimizers._owner = self
+        self.minimizers._minimizers = &self._sk.minimizerIndex
         # create a new list of names
         self._names = []
 
@@ -465,7 +483,7 @@ cdef class Sketch(_Parameterized):
             "names": list(self._names),
             "sketch": {
                 "sequencesByFileInfo": list(self._sk.sequencesByFileInfo),
-                "minimizerIndex": self.minimizers,
+                "minimizers": self.minimizers.__getstate__(),
             }
         }
 
@@ -476,9 +494,7 @@ cdef class Sketch(_Parameterized):
         self._names = state["names"]
 
         self._sk.sequencesByFileInfo = state["sketch"]["sequencesByFileInfo"]
-        self._sk.minimizerIndex = vector[MinimizerInfo_t]()
-        for info in state["sketch"]["minimizerIndex"]:
-            self._sk.minimizerIndex.push_back((<MinimizerInfo?> info).to_raw())
+        self.minimizers.__setstate__(state["sketch"]["minimizers"])
 
     # --- Properties ---------------------------------------------------------
 
@@ -494,26 +510,6 @@ cdef class Sketch(_Parameterized):
         """`list` of `str`: The names of the sequences currently sketched.
         """
         return self._names[:]
-
-    @property
-    def minimizers(self):
-        """`list` of `MinimizerInfo`: The currently recorded minimizers.
-        """
-        assert self._sk != nullptr
-
-        cdef MinimizerInfo   m
-        cdef MinimizerInfo_t m_raw
-        cdef size_t          i     = 0
-        cdef size_t          n     = self._sk.minimizerIndex.size()
-        cdef list            minis = PyList_New(n)
-
-        for m_raw in self._sk.minimizerIndex:
-            m = MinimizerInfo.from_raw(m_raw)
-            Py_INCREF(m)
-            PyList_SET_ITEM(minis, i, m)
-            i += 1
-
-        return minis
 
     # --- Methods ------------------------------------------------------------
 
@@ -707,6 +703,10 @@ cdef class Sketch(_Parameterized):
         mapper._sk = self._sk
         mapper._names = self._names.copy()
         mapper._lengths.swap(self._lengths)
+        # set the minimizers
+        mapper.minimizers = Minimizers.__new__(Minimizers)
+        mapper.minimizers._owner = mapper
+        mapper.minimizers._minimizers = &mapper._sk.minimizerIndex
         # reset the current sketch
         self._sk = new Sketch_t(self._param)
         self.clear()
@@ -717,19 +717,29 @@ cdef class Sketch(_Parameterized):
 @cython.final
 cdef class Mapper(_Parameterized):
     """A genome mapper using Murmur3 hashes and k-mers to compute ANI.
+
+    Attributes:
+        minimizers (`~pyfastani.Minimizers`): A view over the minimizers
+            recorded in the mapper.
+
     """
 
     # --- Attributes ---------------------------------------------------------
 
-    cdef Sketch_t*        _sk
-    cdef vector[uint64_t] _lengths
-    cdef list             _names
+    cdef          Sketch_t*        _sk
+    cdef          vector[uint64_t] _lengths
+    cdef          list             _names
+    cdef readonly Minimizers       minimizers
 
     # --- Magic methods ------------------------------------------------------
 
     def __cinit__(self):
         # create a new Sketch with the parameters
         self._sk = new Sketch_t(self._param)
+        # create the minimizers view
+        self.minimizers = Minimizers()
+        self.minimizers._owner = self
+        self.minimizers._minimizers = &self._sk.minimizerIndex
 
     def __init__(self, *args, **kwargs):
         raise TypeError("Mapper cannot be instantiated, use `Sketch.index` instead.")
@@ -744,7 +754,7 @@ cdef class Mapper(_Parameterized):
             "names": list(self._names),
             "sketch": {
                 "sequencesByFileInfo": list(self._sk.sequencesByFileInfo),
-                "minimizerIndex": self.minimizers,
+                "minimizers": self.minimizers.__getstate__(),
                 "minimizerFreqHistogram": dict(self._sk.minimizerFreqHistogram),
                 "minimizerPosLookupIndex": self.lookup_index,
             }
@@ -755,15 +765,10 @@ cdef class Mapper(_Parameterized):
         self._lengths = state["lengths"]
         self._names = state["names"]
 
-        cdef MinimizerInfo minimizer
         self._sk.minimizerFreqHistogram = state["sketch"]["minimizerFreqHistogram"]
         self._sk.sequencesByFileInfo = state["sketch"]["sequencesByFileInfo"]
-        self._sk.minimizerIndex = vector[MinimizerInfo_t]()
-        for minimizer in state["sketch"]["minimizerIndex"]:
-            self._sk.minimizerIndex.push_back(minimizer.to_raw())
+        self.minimizers.__setstate__(state["sketch"]["minimizers"])
 
-        cdef seqno_t  seqId
-        cdef offset_t wpos
         cdef Position pos
         cdef vector[MinimizerMetaData_t] map_value
         self._sk.minimizerPosLookupIndex = unordered_map[MinimizerMapKeyType_t, MinimizerMapValueType_t]()
@@ -774,26 +779,6 @@ cdef class Mapper(_Parameterized):
             self._sk.minimizerPosLookupIndex.insert(pair[MinimizerMapKeyType_t, MinimizerMapValueType_t](key, map_value))
 
     # --- Properties ---------------------------------------------------------
-
-    @property
-    def minimizers(self):
-        """`list` of `MinimizerInfo`: The currently recorded minimizers.
-        """
-        assert self._sk != nullptr
-
-        cdef MinimizerInfo   m
-        cdef MinimizerInfo_t m_raw
-        cdef size_t          i     = 0
-        cdef size_t          n     = self._sk.minimizerIndex.size()
-        cdef list            minis = PyList_New(n)
-
-        for m_raw in self._sk.minimizerIndex:
-            m = MinimizerInfo.from_raw(m_raw)
-            Py_INCREF(m)
-            PyList_SET_ITEM(minis, i, m)
-            i += 1
-
-        return minis
 
     @property
     def lookup_index(self):
@@ -1106,6 +1091,74 @@ cdef class Mapper(_Parameterized):
         """
         # delegate to C code
         return self._query_draft((sequence,))
+
+
+cdef class Minimizers:
+    """A read-only view over the minimizers of a `Sketch` or a `Mapper`.
+    """
+
+    # --- Attributes ---------------------------------------------------------
+
+    cdef object                   _owner
+    cdef vector[MinimizerInfo_t]* _minimizers
+
+    # --- Magic methods ------------------------------------------------------
+
+    def __cinit__(self):
+        self._owner = None
+        self._minimizers = NULL
+
+    def __dealloc__(self):
+        if self._owner is None:
+            del self._minimizers
+
+    def __len__(self):
+        return 0 if self._minimizers == NULL else self._minimizers[0].size()
+
+    def __getitem__(self, ssize_t index):
+        if self._minimizers == NULL:
+            raise IndexError(index)
+        cdef ssize_t index_ = index
+        cdef ssize_t length = self._minimizers[0].size()
+        if index_ < 0:
+            index_ += length
+        if index_ < 0 or index >= length:
+            raise IndexError(index)
+        assert self._minimizers != NULL
+        return MinimizerInfo.from_raw(self._minimizers[0][index_])
+
+    cpdef dict __getstate__(self):
+        cdef MinimizerInfo_t mini
+        cdef object          hashes  = array.array("L")
+        cdef object          ids     = array.array("l")
+        cdef object          offsets = array.array("l")
+        cdef size_t          length  = 0
+        if self._minimizers != NULL:
+            length = self._minimizers.size()
+            for mini in self._minimizers[0]:
+                hashes.append(mini.hash)
+                ids.append(mini.seqId)
+                offsets.append(mini.wpos)
+        return {
+            "hashes": hashes,
+            "ids": ids,
+            "offsets": offsets,
+            "length": length,
+        }
+
+    cpdef object __setstate__(self, dict state):
+        cdef size_t i
+        cdef size_t length  = state["length"]
+        cdef object hashes  = state["hashes"]
+        cdef object ids     = state["ids"]
+        cdef object offsets = state["offsets"]
+        if self._minimizers == NULL:
+            self._minimizers = new vector[MinimizerInfo_t]()
+        self._minimizers.resize(length)
+        for i, (hash, seqId, wpos) in enumerate(zip(hashes, ids, offsets)):
+            self._minimizers[0][i].hash = hash
+            self._minimizers[0][i].seqId = seqId
+            self._minimizers[0][i].wpos = wpos
 
 
 cdef class Hit:

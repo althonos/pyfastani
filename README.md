@@ -19,7 +19,7 @@
 ## 🗺️ Overview
 
 FastANI is a method published in 2018 by Jain *et al.* for high-throughput
-computATION of whole-genome [Average Nucleotide Identity (ANI)](https://img.jgi.doe.gov/docs/ANI.pdf).
+computation of whole-genome [Average Nucleotide Identity (ANI)](https://img.jgi.doe.gov/docs/ANI.pdf).
 It uses [MashMap](https://github.com/marbl/MashMap) to compute orthologous mappings
 without the need for expensive alignments.
 
