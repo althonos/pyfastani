@@ -28,7 +28,8 @@ except ImportError as err:
 
 # --- Constants --------------------------------------------------------------
 
-PLATFORM_MACHINE   = platform.machine()
+PLATFORM_MACHINE = platform.machine()
+PLATFORM_SYSTEM  = platform.system()
 UNIX = not sys.platform.startswith("win")
 
 PROCESSOR_IS_MIPS = PLATFORM_MACHINE.startswith("mips")
@@ -45,6 +46,16 @@ def _split_multiline(value):
     sep = max('\n,;', key=value.count)
     return list(filter(None, map(lambda x: x.strip(), value.split(sep))))
 
+def _patch_osx_compiler(compiler):
+    # On newer OSX, Python has been compiled as a universal binary, so
+    # it will attempt to pass universal binary flags when building the
+    # extension. This will not work because the code makes use of SSE2.
+    for tool in ("compiler", "compiler_so", "linker_so"):
+        flags = getattr(compiler, tool)
+        i = next((i for i in range(1, len(flags)) if flags[i-1] == "-arch" and flags[i] != platform.machine()), None)
+        if i is not None:
+            flags.pop(i)
+            flags.pop(i-1)
 
 # --- `setuptools` classes ---------------------------------------------------
 
@@ -163,6 +174,38 @@ class build_clib(_build_clib):
 
     # --- Build code ---
 
+    def _check_function(self, funcname, header, args="()"):
+        print('checking whether function', repr(funcname), 'is available', end="... ", file=sys.stderr)
+
+        base = "have_{}".format(funcname)
+        testfile = os.path.join(self.build_temp, "{}.c".format(base))
+        binfile = self.compiler.executable_filename(base, output_dir=self.build_temp)
+        objects = []
+
+        with open(testfile, "w") as f:
+            f.write("""
+                #include <{}>
+                int main() {{
+                    {}{};
+                    return 0;
+                }}
+            """.format(header, funcname, args))
+        try:
+            objects = self.compiler.compile([testfile], debug=self.debug)
+            self.compiler.link_executable(objects, base, output_dir=self.build_temp)
+        except CompileError:
+            print("no", file=sys.stderr)
+            return False
+        else:
+            print("yes", file=sys.stderr)
+            return True
+        finally:
+            os.remove(testfile)
+            for obj in filter(os.path.isfile, objects):
+                os.remove(obj)
+            if os.path.isfile(binfile):
+                os.remove(binfile)
+
     def _has_dlopen(self):
         self.mkpath(self.build_temp)
         filename = os.path.join(self.build_temp, "test_dlopen.c")
@@ -213,6 +256,13 @@ class build_clib(_build_clib):
                 library.sources.append(os.path.join("vendor", "cpu_features", "src", "hwcaps.c"))
 
     def build_libraries(self, libraries):
+        # check for functions required for libcpu_features on OSX
+        if PLATFORM_SYSTEM == "Darwin":
+            _patch_osx_compiler(self.compiler)
+            if self._check_function("sysctlbyname", "sys/sysctl.h", args="(NULL, NULL, 0, NULL, 0)"):
+                self.compiler.define_macro("HAVE_SYSCTLBYNAME", 1)
+
+        # build each library only if the sources are outdated
         self.mkpath(self.build_clib)
         for library in libraries:
             sources = library.sources.copy()
@@ -338,6 +388,13 @@ class build_ext(_build_ext):
 
         # build the extensions as normal
         _build_ext.run(self)
+
+    def build_extensions(self):
+        # remove universal compilation flags for OSX
+        if platform.system() == "Darwin":
+            _patch_osx_compiler(self.compiler)
+        # build the extensions as normal
+        _build_ext.build_extensions(self)
 
     def build_extension(self, ext):
         # update compile flags if compiling in debug mode
