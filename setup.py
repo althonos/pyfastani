@@ -532,6 +532,7 @@ extensions = [
         define_macros=[
             ("USE_BOOST", 1), # used to compile FastANI without GSL
             ("BOOST_NO_EXCEPTIONS", 1), # don't raise overflow errors
+            ("BOOST_IF_CONSTEXPR", "if"),
         ],
     ),
     Extension(
