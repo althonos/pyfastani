@@ -24,6 +24,12 @@ recursive-include vendor/cpu_features/cmake   *
 recursive-include vendor/cpu_features/src     *.h *.c
 recursive-include vendor/cpu_features/include *.h
 
+include vendor/boost-math/LICENSE
+include vendor/boost-math/README.md
+include vendor/boost-math/CMakeLists.txt
+recursive-include vendor/boost-math/include         *.hpp *.ipp
+recursive-include vendor/boost-math/include_private *.hpp *.ipp
+
 # Cython headers
 recursive-include include   *.pxd
 
