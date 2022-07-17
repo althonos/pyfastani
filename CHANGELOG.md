@@ -6,7 +6,24 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyrodigal/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/althonos/pyrodigal/compare/v0.3.0...HEAD
+
+
+## [v0.3.0] - 2022-06-17
+[v0.3.0]: https://github.com/althonos/pyrodigal/compare/v0.2.1...v0.3.0
+
+### Added
+- `pickle` protocol implementation to `Mapper` and `Sketch` via `__getstate__` and `__setstate__`.
+- `Minimizers` class to access the minimizers of a `Sketch` or `Mapper` object.
+
+### Changed
+- Make `Sketcher` and `Mapper` final.
+- Prevent direct instantiation of `Mapper` objects.
+- Update `Mapper._query_draft` to recycle memory between fragments.
+- Vendor `Boost::math` headers (`v1.79`) to allow compiling without depdendencies.
+
+### Fixed
+- Broken compilation of `_fastani` extension module as `universal2` binaries on MacOS.
 
 
 ## [v0.2.1] - 2021-06-20
