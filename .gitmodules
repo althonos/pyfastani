@@ -4,3 +4,6 @@
 [submodule "vendor/cpu_features"]
 	path = vendor/cpu_features
 	url = https://github.com/google/cpu_features/
+[submodule "vendor/boost-math"]
+	path = vendor/boost-math
+	url = https://github.com/boostorg/math
