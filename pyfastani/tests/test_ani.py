@@ -6,18 +6,18 @@ import unittest
 from .. import Sketch
 from .._fasta import Parser
 
-# root project folder
-PROJECT_PATH = os.path.realpath(os.path.join(__file__, "..", "..", ".."))
+# test data folder
+DATA_FOLDER = os.path.realpath(os.path.join(__file__, "..", "data"))
 
 # vendored test files from the FastANI sources
-FASTANI_PATH = os.path.join(PROJECT_PATH, "vendor", "FastANI")
-ECOLI = os.path.join(FASTANI_PATH, "data", "Escherichia_coli_str_K12_MG1655.fna")
-SFLEXNERI = os.path.join(FASTANI_PATH, "data", "Shigella_flexneri_2a_01.fna")
+ECOLI = os.path.join(DATA_FOLDER, "Escherichia_coli_str_K12_MG1655.fna")
+SFLEXNERI = os.path.join(DATA_FOLDER, "Shigella_flexneri_2a_01.fna")
 
 # local test files from MIBiG
-BGC0001425 = os.path.realpath(os.path.join(__file__, "..", "data", "BGC0001425.faa"))
-BGC0001427 = os.path.realpath(os.path.join(__file__, "..", "data", "BGC0001427.faa"))
-BGC0001428 = os.path.realpath(os.path.join(__file__, "..", "data", "BGC0001428.faa"))
+BGC0001425 = os.path.join(DATA_FOLDER, "BGC0001425.faa")
+BGC0001427 = os.path.join(DATA_FOLDER, "BGC0001427.faa")
+BGC0001428 = os.path.join(DATA_FOLDER, "BGC0001428.faa")
+
 
 class _TestANI(object):
 

@@ -41,4 +41,4 @@ exclude pyfastani/_fasta.c
 
 # Test files
 include pyfastani/tests/requirements.txt
-recursive-include pyfastani/tests/data/ *.fna *.faa
+recursive-include pyfastani/tests/data/ *.fna *.faa *.py
