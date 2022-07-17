@@ -176,6 +176,7 @@ class build_clib(_build_clib):
 
     def _check_function(self, funcname, header, args="()"):
         print('checking whether function', repr(funcname), 'is available', end="... ", file=sys.stderr)
+        self.mkpath(self.build_temp)
 
         base = "have_{}".format(funcname)
         testfile = os.path.join(self.build_temp, "{}.c".format(base))

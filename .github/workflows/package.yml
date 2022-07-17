@@ -25,6 +25,10 @@ jobs:
           pyo3-python: /opt/python/cp310-cp310/bin/python
         - python-version: pypy-3.7
           pyo3-python: /opt/python/pp37-pypy37_pp73/bin/python
+        - python-version: pypy-3.8
+          pyo3-python: /opt/python/pp38-pypy38_pp73/bin/python
+        - python-version: pypy-3.9
+          pyo3-python: /opt/python/pp39-pypy39_pp73/bin/python
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
@@ -72,8 +76,10 @@ jobs:
       with:
           name: dist
           path: dist
+    - name: Update pip
+      run: python -m pip install -U pip wheel setuptools
     - name: Install built wheel
-      run: python -m pip install --no-index --find-links=dist pyfastani
+      run: python -m pip install --only-binary pyfastani --find-links=dist pyfastani
     - name: Run tests without coverage
       run: python -m unittest pyfastani.tests -vv
 
@@ -136,8 +142,10 @@ jobs:
       with:
           name: dist
           path: dist
+    - name: Update pip
+      run: python -m pip install -U pip wheel setuptools
     - name: Install built wheel
-      run: python -m pip install --no-index --find-links=dist pyfastani
+      run: python -m pip install --only-binary pyfastani --find-links=dist pyfastani
     - name: Run tests without coverage
       run: python -m unittest pyfastani.tests -vv
 
@@ -241,7 +249,7 @@ jobs:
           path: dist/
     - name: Update pip to latest version
       run: python -m pip install -U pip setuptools wheel
-    - name: Install built wheel
+    - name: Install source distribution
       run: python -m pip install --no-binary pyfastani --find-links=dist pyfastani
     - name: Run tests without coverage
       run: python -m unittest pyfastani.tests -vv
