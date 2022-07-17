@@ -58,8 +58,6 @@ jobs:
       run: python -m pip install -U pip wheel setuptools
     - name: Install Python requirements
       run: python -m pip install -r .github/workflows/requirements.txt
-    - name: "Install Boost::math"
-      run: sudo apt-get install -y libboost-math-dev
     - name: Build C extension
       run: python setup.py build_ext --inplace --debug
     - name: Install numpy
@@ -129,8 +127,6 @@ jobs:
       run: python -m pip install -U pip wheel setuptools
     - name: Install Python requirements
       run: python -m pip install -r .github/workflows/requirements.txt
-    - name: "Install Boost::math"
-      run: brew install boost
     - name: Build C extension
       run: python setup.py build_ext --inplace --debug
     - name: Install numpy
