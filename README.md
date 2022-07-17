@@ -31,8 +31,8 @@ FastANI internals, which has the following advantages over CLI wrappers:
 - **simpler compilation**: FastANI requires several additional libraries,
   which make compilation of the original binary non-trivial. In pyFastANI,
   libraries that were needed for threading or I/O are provided as stubs,
-  so you only need to have `boost::math` to build. Or even better, just
-  install from one of the provided wheels!
+  and `Boost::math` headers are vendored so you can build the package without 
+  hassle. Or even better, just install from one of the provided wheels!
 - **single dependency**: If your software or your analysis pipeline is
   distributed as a Python package, you can add `pyfastani` as a dependency to
   your project, and stop worrying about the FastANI binary being present on
@@ -54,9 +54,9 @@ as the code required to compile from source with Cython:
 $ pip install pyfastani
 ```
 
-Note that in the event you compile from source, you will need to have the
-headers and libraries for `boost::math` available.
-
+In the event you have to compile the package from source, all the required 
+libraries are vendored in the source distribution, so you'll only need a 
+C/C++ compiler.
 
 ## 💡 Example
 
@@ -150,6 +150,10 @@ for more information.
 The `cpu_features` code was written by [Guillaume Chatelet](https://github.com/gchatelet)
 and is distributed under the terms of the [Apache License 2.0](https://choosealicense.com/licenses/apache-2.0/).
 See `vendor/cpu_features/LICENSE` for more information.
+
+The `Boost::math` headers were written by [Boost Libraries](https://www.boost.org/) contributors
+and is distributed under the terms of the [Boost Software License](https://choosealicense.com/licenses/bsl-1.0/).
+See `vendor/boost-math/LICENSE` for more information.
 
 *This project is in no way not affiliated, sponsored, or otherwise endorsed
 by the [original FastANI authors](https://github.com/cjain7). It was developed by
