@@ -5,6 +5,10 @@ ZEXTERN gzFile ZEXPORT gzdopen(int fd, const char* mode) {
     return NULL;
 }
 
+ZEXTERN gzFile ZEXPORT gzopen(const char* path, const char* mode) {
+    return NULL;
+}
+
 ZEXTERN gzFile ZEXPORT gzopen64(const char* path, const char* mode) {
     return NULL;
 }
