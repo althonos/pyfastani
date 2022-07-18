@@ -4,15 +4,15 @@ PyFastANI |Stars|
 .. |Stars| image:: https://img.shields.io/github/stars/althonos/pyfastani.svg?style=social&maxAge=3600&label=Star
    :target: https://github.com/althonos/pyfastani/stargazers
 
-`Cython <https://cython.org/>`_ *bindings and Python interface to* `trimAl <http://trimal.cgenomics.org/>`_,
-*a tool for automated alignment trimming.*
+`Cython <https://cython.org/>`_ *bindings and Python interface to* `FastANI <ttps://github.com/ParBLiSS/FastANI/>`_,
+*a method for fast whole-genome similarity estimation.*
 
 |Actions| |Coverage| |PyPI| |Bioconda| |AUR| |Wheel| |Versions| |Implementations| |License| |Source| |Mirror| |Issues| |Docs| |Changelog| |Downloads|
 
 .. |Actions| image:: https://img.shields.io/github/workflow/status/althonos/pyfastani/Test/main?logo=github&style=flat-square&maxAge=300
    :target: https://github.com/althonos/pyfastani/actions
 
-.. |Coverage| image:: https://img.shields.io/codecov/c/gh/althonos/pyfastani?style=flat-square&maxAge=600
+.. |Coverage| image:: https://img.shields.io/codecov/c/gh/althonos/pyfastani/branch/main.svg?style=flat-square&maxAge=600
    :target: https://codecov.io/gh/althonos/pyfastani/
 
 .. |PyPI| image:: https://img.shields.io/pypi/v/pyfastani.svg?style=flat-square&maxAge=3600
@@ -58,22 +58,27 @@ PyFastANI |Stars|
 Overview
 --------
 
-PytrimAl is a Python module that provides bindings to trimAl using
-`Cython <https://cython.org/>`_. It directly interacts with the trimAl
-internals, which has the following advantages:
+FastANI is a method published in 2018 by Jain *et al.* for high-throughput
+computation of whole-genome `Average Nucleotide Identity (ANI) <https://img.jgi.doe.gov/docs/ANI.pdf>`_.
+It uses `MashMap <https://github.com/marbl/MashMap>`_ to compute orthologous mappings
+without the need for expensive alignments.
 
-- **single dependency**: PytrimAl is distributed as a Python package, so you
-  can add it as a dependency to your project, and stop worrying about the
-  trimAl binary being present on the end-user machine.
-- **no intermediate files**: Everything happens in memory, in a Python object
-  you control, so you don't have to invoke the trimAl CLI using a
-  sub-process and temporary files. `Alignment` objects can be created
-  directly from Python code.
-- **friendly interface**: The different trimming methods are implement as
-  Python classes that can be configured independently.
-- **error management**: Errors occuring in trimAl are converted
-  transparently into Python exceptions, including an informative
-  error message.
+``pyfastani`` is a Python module, implemented using the `Cython <https://cython.org/>`_
+language, that provides bindings to FastANI. It directly interacts with the
+FastANI internals, which has the following advantages over CLI wrappers:
+
+- **simpler compilation**: FastANI requires several additional libraries,
+  which make compilation of the original binary non-trivial. In PyFastANI,
+  libraries that were needed for threading or I/O are provided as stubs,
+  and `Boost::math` headers are vendored so you can build the package without
+  hassle. Or even better, just install from one of the provided wheels!
+- **single dependency**: If your software or your analysis pipeline is
+  distributed as a Python package, you can add `pyfastani` as a dependency to
+  your project, and stop worrying about the FastANI binary being present on
+  the end-user machine.
+- **sans I/O**: Everything happens in memory, in Python objects you control,
+  making it easier to pass your sequences to FastANI
+  without needing to write them to a temporary file.
 
 
 Setup
