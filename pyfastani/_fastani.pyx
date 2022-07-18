@@ -363,6 +363,10 @@ cdef class _Parameterized:
 cdef class Sketch(_Parameterized):
     """An index computing minimizers over the reference genomes.
 
+    Use this class to add reference genomes with the `add_genome` or
+    `add_draft` methods, then call the `index` method to obtain a `Mapper`
+    that can be used to map query genomes.
+
     Attributes:
         minimizers (`~pyfastani.Minimizers`): A view over the minimizers
             currently recorded in the sketch.
@@ -400,7 +404,7 @@ cdef class Sketch(_Parameterized):
         uint64_t reference_size=5_000_000,
         bint protein=False,
     ):
-        f"""__init__(self, *, k=16, fragment_length=3000, minimum_fraction=0.2, p_value=1e-03, percentage_identity=80, reference_size=5000000, protein=False)\n--
+        """__init__(self, *, k=16, fragment_length=3000, minimum_fraction=0.2, p_value=1e-03, percentage_identity=80, reference_size=5e9, protein=False)\n--
 
         Create a new FastANI sequence sketch.
 
@@ -1072,8 +1076,8 @@ cdef class Mapper(_Parameterized):
         Query the mapper for a complete genome.
 
         Arguments:
-            sequence (`str` or `bytes`): The genome to query the mapper
-                with.
+            sequence (`str` or `bytes`): The closed genome to query the
+                mapper with.
 
         Returns:
             `list` of `~pyfastani.Hit`: The hits found for the query.
@@ -1162,7 +1166,18 @@ cdef class Minimizers:
 
 
 cdef class Hit:
-    """A single hit found when querying the mapper with a genome.
+    """A single hit found when querying a `Mapper` with a genome.
+
+    Attributes:
+        name (`object`): The name of the genome that produced a hit, as
+            given to `Sketch.add_genome` or `Sketch.add_draft`.
+        matches (`int`): The number of fragments that matched the target
+            genome.
+        fragments (`int`): The total number of fragments used to compare
+            the query and target genomes.
+        identity (`float`): The average nucleotide identity between the
+            two genomes, given as a percentage.
+
     """
 
     # --- Attributes ---------------------------------------------------------
