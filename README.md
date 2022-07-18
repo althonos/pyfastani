@@ -1,4 +1,4 @@
-# 🐍⏩🧬 pyFastANI [![Stars](https://img.shields.io/github/stars/althonos/pyfastani.svg?style=social&maxAge=3600&label=Star)](https://github.com/althonos/pyfastani/stargazers)
+# 🐍⏩🧬 PyFastANI [![Stars](https://img.shields.io/github/stars/althonos/pyfastani.svg?style=social&maxAge=3600&label=Star)](https://github.com/althonos/pyfastani/stargazers)
 
 *[Cython](https://cython.org/) bindings and Python interface to [FastANI](https://github.com/ParBLiSS/FastANI/), a method for fast whole-genome similarity estimation.*
 
@@ -29,9 +29,9 @@ language, that provides bindings to FastANI. It directly interacts with the
 FastANI internals, which has the following advantages over CLI wrappers:
 
 - **simpler compilation**: FastANI requires several additional libraries,
-  which make compilation of the original binary non-trivial. In pyFastANI,
+  which make compilation of the original binary non-trivial. In PyFastANI,
   libraries that were needed for threading or I/O are provided as stubs,
-  and `Boost::math` headers are vendored so you can build the package without 
+  and `Boost::math` headers are vendored so you can build the package without
   hassle. Or even better, just install from one of the provided wheels!
 - **single dependency**: If your software or your analysis pipeline is
   distributed as a Python package, you can add `pyfastani` as a dependency to
@@ -47,15 +47,15 @@ but it should already pack enough features to be used in a standard pipeline.*
 
 ## 🔧 Installing
 
-pyFastANI can be installed directly from [PyPI](https://pypi.org/project/pyfastani/),
+PyFastANI can be installed directly from [PyPI](https://pypi.org/project/pyfastani/),
 which hosts some pre-built CPython wheels for x86-64 Unix platforms, as well
 as the code required to compile from source with Cython:
 ```console
 $ pip install pyfastani
 ```
 
-In the event you have to compile the package from source, all the required 
-libraries are vendored in the source distribution, so you'll only need a 
+In the event you have to compile the package from source, all the required
+libraries are vendored in the source distribution, so you'll only need a
 C/C++ compiler.
 
 ## 💡 Example
@@ -125,7 +125,7 @@ for hit in hits:
 ### ⚠️ Issue Tracker
 
 Found a bug ? Have an enhancement request ? Head over to the [GitHub issue
-tracker](https://github.com/althonos/pyFastANI/issues) if you need to report
+tracker](https://github.com/althonos/pyfastani/issues) if you need to report
 or ask something. If you are filing in on a bug, please include as much
 information as you can about the issue, and try to recreate the same bug
 in a simple, easily reproducible situation.
@@ -133,7 +133,7 @@ in a simple, easily reproducible situation.
 ### 🏗️ Contributing
 
 Contributions are more than welcome! See
-[`CONTRIBUTING.md`](https://github.com/althonos/pyFastANI/blob/master/CONTRIBUTING.md)
+[`CONTRIBUTING.md`](https://github.com/althonos/pyfastani/blob/master/CONTRIBUTING.md)
 for more details.
 
 
@@ -146,11 +146,9 @@ and is distributed under the terms of the
 [Apache License 2.0](https://choosealicense.com/licenses/apache-2.0/),
 unless otherwise specified in vendored sources. See `vendor/FastANI/LICENSE`
 for more information.
-
 The `cpu_features` code was written by [Guillaume Chatelet](https://github.com/gchatelet)
 and is distributed under the terms of the [Apache License 2.0](https://choosealicense.com/licenses/apache-2.0/).
 See `vendor/cpu_features/LICENSE` for more information.
-
 The `Boost::math` headers were written by [Boost Libraries](https://www.boost.org/) contributors
 and is distributed under the terms of the [Boost Software License](https://choosealicense.com/licenses/bsl-1.0/).
 See `vendor/boost-math/LICENSE` for more information.
