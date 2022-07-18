@@ -2,16 +2,16 @@
 #define __SEQUTILS_H
 
 #ifdef __X86__
-#include "cpu_features_x86.h"
+#include "cpuinfo_x86.h"
 #endif
 #ifdef __X86_64__
-#include "cpu_features_x86.h"
+#include "cpuinfo_x86.h"
 #endif
 #ifdef __arm__
-#include "cpu_features_arm.h"
+#include "cpuinfo_arm.h"
 #endif
 #ifdef __aarch64__
-#include "cpu_features_aarch64.h"
+#include "cpuinfo_aarch64.h"
 #endif
 
 #ifdef __cplusplus
