@@ -23,7 +23,7 @@ build() {
 check() {
     local pyver=$(python -c 'import sys; print("{}.{}".format(*sys.version_info[:2]))')
     local machine=$(python -c 'import platform; print(platform.machine())')
-    cd "${srcdir}/${_name}-${pkgver}/build/lib.linux-${machine}-${pyver}"
+    cd "${srcdir}/${_name}-${pkgver}/build/lib.linux-${machine}"-*
     python -m unittest ${_name}.tests
 }
 
