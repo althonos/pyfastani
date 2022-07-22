@@ -327,7 +327,7 @@ jobs:
     - name: Update package
       uses: KSXGitHub/github-actions-deploy-aur@v2.2.5
       with:
-        pkgname: python-pyrodigal
+        pkgname: python-pyfastani
         pkgbuild: pkg/aur/PKGBUILD
         commit_username: ${{ secrets.AUR_USER }}
         commit_email: ${{ secrets.AUR_EMAIL }}
