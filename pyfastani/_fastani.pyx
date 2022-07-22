@@ -609,7 +609,7 @@ cdef class Sketch(_Parameterized):
         Add a reference draft genome to the sketcher.
 
         Using this method is fine even when the genome has a single contig,
-        although `Mapper.add_genome` is easier to use in that case.
+        although `Sketch.add_genome` is easier to use in that case.
 
         Arguments:
             name (`object`): The name of the genome to add. When a reference
@@ -634,7 +634,7 @@ cdef class Sketch(_Parameterized):
 
         Add a reference genome to the sketcher.
 
-        This method is a shortcut for `Mapper.add_draft` when a genome is
+        This method is a shortcut for `Sketch.add_draft` when a genome is
         complete (i.e. only contains a single contig).
 
         Arguments:
