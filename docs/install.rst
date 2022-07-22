@@ -22,17 +22,17 @@ one is available, or from source after compiling the Cython code :
    $ pip install --user pyfastani
 
 
-.. Conda
-.. ^^^^^
-..
-.. `pyfastani` is also available as a `recipe <https://anaconda.org/bioconda/pyfastani>`_
-.. in the `bioconda <https://bioconda.github.io/>`_ channel. To install, simply
-.. use the ``conda`` installer:
-..
-.. .. code:: console
-..
-..    $ conda install -c bioconda pyfastani
-..
+Conda
+^^^^^
+
+`pyfastani` is also available as a `recipe <https://anaconda.org/bioconda/pyfastani>`_
+in the `bioconda <https://bioconda.github.io/>`_ channel. To install, simply
+use the ``conda`` installer:
+
+.. code:: console
+
+   $ conda install -c bioconda pyfastani
+
 
 Arch User Repository
 ^^^^^^^^^^^^^^^^^^^^

@@ -6,11 +6,15 @@
 [![Coverage](https://img.shields.io/codecov/c/gh/althonos/pyfastani/branch/main.svg?style=flat-square&maxAge=3600)](https://codecov.io/gh/althonos/pyfastani/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square&maxAge=2678400)](https://choosealicense.com/licenses/mit/)
 [![PyPI](https://img.shields.io/pypi/v/pyfastani.svg?style=flat-square&maxAge=3600)](https://pypi.org/project/pyfastani)
+[![Bioconda](https://img.shields.io/conda/vn/bioconda/pyfastani?style=flat-square&maxAge=3600&logo=anaconda)](https://anaconda.org/bioconda/pyfastani)
+[![AUR](https://img.shields.io/aur/version/python-pyfastani?logo=archlinux&style=flat-square&maxAge=3600)](https://aur.archlinux.org/packages/python-pyfastani)
 [![Wheel](https://img.shields.io/pypi/wheel/pyfastani.svg?style=flat-square&maxAge=3600)](https://pypi.org/project/pyfastani/#files)
 [![Python Versions](https://img.shields.io/pypi/pyversions/pyfastani.svg?style=flat-square&maxAge=600)](https://pypi.org/project/pyfastani/#files)
 [![Python Implementations](https://img.shields.io/pypi/implementation/pyfastani.svg?style=flat-square&maxAge=600&label=impl)](https://pypi.org/project/pyfastani/#files)
 [![Source](https://img.shields.io/badge/source-GitHub-303030.svg?maxAge=2678400&style=flat-square)](https://github.com/althonos/pyfastani/)
-[![GitHub issues](https://img.shields.io/github/issues/althonos/pyfastani.svg?style=flat-square&maxAge=600)](https://github.com/althonos/pyfastani/issues)
+[![Mirror](https://img.shields.io/badge/mirror-EMBL-009f4d?style=flat-square&maxAge=2678400)](https://git.embl.de/larralde/pyfastani/)
+[![Issues](https://img.shields.io/github/issues/althonos/pyfastani.svg?style=flat-square&maxAge=600)](https://github.com/althonos/pyfastani/issues)
+[![Docs](https://img.shields.io/readthedocs/pyfastani/latest?style=flat-square&maxAge=600)](https://pyfastani.readthedocs.io)
 [![Changelog](https://img.shields.io/badge/keep%20a-changelog-8A0707.svg?maxAge=2678400&style=flat-square)](https://github.com/althonos/pyfastani/blob/master/CHANGELOG.md)
 [![Downloads](https://img.shields.io/badge/dynamic/json?style=flat-square&color=303f9f&maxAge=86400&label=downloads&query=%24.total_downloads&url=https%3A%2F%2Fapi.pepy.tech%2Fapi%2Fprojects%2Fpyfastani)](https://pepy.tech/project/pyfastani)
 [![DOI](https://img.shields.io/badge/doi-10.5281%2Fzenodo.4940237-purple?style=flat-square&maxAge=86400)](https://doi.org/10.5281/zenodo.4940237)
@@ -57,6 +61,12 @@ $ pip install pyfastani
 In the event you have to compile the package from source, all the required
 libraries are vendored in the source distribution, so you'll only need a
 C/C++ compiler.
+
+Otherwise, PyFastANI is also available as a [Bioconda](https://pyfastani.github.io/)
+package:
+```console
+$ conda install -c bioconda pyfastani
+```
 
 ## 💡 Example
 
