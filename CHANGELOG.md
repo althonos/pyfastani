@@ -6,10 +6,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyrodigal/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/althonos/pyrodigal/compare/v0.3.1...HEAD
 
 
-## [v0.3.0] - 2022-06-17
+## [v0.3.1] - 2022-07-22
+[v0.3.1]: https://github.com/althonos/pyrodigal/compare/v0.3.0...v0.3.1
+
+### Added
+- Slightly improve documentation in some classes.
+- Sphinx documentation for the project hosted on ReadTheDocs.
+- Links and instructions to install package from the Bioconda channel.
+
+
+## [v0.3.0] - 2022-07-17
 [v0.3.0]: https://github.com/althonos/pyrodigal/compare/v0.2.1...v0.3.0
 
 ### Added
