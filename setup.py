@@ -502,7 +502,7 @@ libraries = [
             PlatformCode(
                 platform="NEON",
                 sources=[os.path.join("pyfastani", "_sequtils", "neon.c")],
-                extra_compile_args=["-mneon"],
+                extra_compile_args=[] if PROCESSOR_IS_AARCH64 else ["-mfpu=neon"],
             ),
             PlatformCode(
                 platform="SSE2",
