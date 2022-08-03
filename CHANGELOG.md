@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 [Unreleased]: https://github.com/althonos/pyrodigal/compare/v0.3.1...HEAD
 
 
+## [v0.4.0] - 2022-08-04
+[v0.3.1]: https://github.com/althonos/pyrodigal/compare/v0.3.1...v0.4.0
+
+### Added
+- Multi-threaded computation of fragment mapping in `Mapper.query_draft` and `Mapper.query_genome`.
+
+### Fixed
+- NEON-specific compile flags in `setup.py` for Aarch64 target platforms.
+- Broken compilation for Arm platforms because of missing header guards.
+
+
 ## [v0.3.1] - 2022-07-22
 [v0.3.1]: https://github.com/althonos/pyrodigal/compare/v0.3.0...v0.3.1
 
