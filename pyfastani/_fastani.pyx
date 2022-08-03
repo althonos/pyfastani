@@ -287,11 +287,37 @@ cdef int _add_minimizers_prot(
 
 
 cdef class _Map:
+    """A private class wrapping a heap-allocated compute map.
+    """
+
+    # --- Attributes ---------------------------------------------------------
+
     cdef Map_t* _map
+
+    # --- Magic methods ------------------------------------------------------
+
+    def __cinit__(self):
+        self._map = NULL
+
+    def __init__(self):
+        raise TypeError(f"Cannot instantiate objects of type {type(self).__name__!r}")
+
+    def __dealloc__(self):
+        del self._map
 
 
 cdef class _FinalMappings:
+    """A private class wrapping a vector of L2 mapping results.
+    """
+
+    # --- Attributes ---------------------------------------------------------
+
     cdef atomic_vector[MappingResult_t] _vec
+
+    # --- Magic methods ------------------------------------------------------
+
+    def __init__(self):
+        raise TypeError(f"Cannot instantiate objects of type {type(self).__name__!r}")
 
 
 cdef class _Parameterized:
