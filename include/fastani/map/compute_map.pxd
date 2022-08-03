@@ -12,17 +12,8 @@ cdef extern from "map/include/computeMap.hpp" namespace "skch" nogil:
 
     cdef cppclass Map:
 
-        struct L1_candidateLocus_t:
-            seqno_t  seqId
-            offset_t rangeStartPos
-            offset_t rangeEndPos
-
-        struct L2_mapLocus_t:
-            seqno_t         seqId
-            offset_t        meanOptimalPos
-            Sketch.MIIter_t optimalStart
-            Sketch.MIIter_t optimalEnd
-            int             sharedSketchSize
+        Parameters &param
+        Sketch &refSketch
 
         ctypedef Sketch.MI_Type MinVec_Type
         ctypedef Sketch.MIIter_t MIIter_t
@@ -37,9 +28,24 @@ cdef extern from "map/include/computeMap.hpp" namespace "skch" nogil:
             function[void(MappingResult&)] f = nullptr
         )
 
-        void mapSingleQuerySeq[Q](Q&, MappingResultsVector_t&, ofstream&)
+        void mapSingleQuerySeq[Q](Q&, MappingResultsVector_t&, ofstream&) except +
         void doL1Mapping[Q, V](Q&, V&)
-        void computeL1CandidateRegions[Q, V1, V2](Q&, V1&, int, V2&)
-        void doL2Mapping[Q, V1, V2](Q&, V1&, V2&)
-        void computeL2MappedRegions[Q](Q&, L1_candidateLocus_t&, L2_mapLocus_t&)
-        void reportL2Mappings(MappingResultsVector_t&, ofstream&)
+        void computeL1CandidateRegions[Q, V1, V2](Q&, V1&, int, V2&) except +
+        void doL2Mapping[Q, V1, V2](Q&, V1&, V2&) except +
+        void computeL2MappedRegions[Q](Q&, L1_candidateLocus_t&, L2_mapLocus_t&) except +
+        void reportL2Mappings(MappingResultsVector_t&, ofstream&) except +
+
+
+cdef extern from "map/include/computeMap.hpp" namespace "skch::Map" nogil:
+
+    cdef struct L1_candidateLocus_t:
+        seqno_t  seqId
+        offset_t rangeStartPos
+        offset_t rangeEndPos
+
+    cdef struct L2_mapLocus_t:
+        seqno_t         seqId
+        offset_t        meanOptimalPos
+        Sketch.MIIter_t optimalStart
+        Sketch.MIIter_t optimalEnd
+        int             sharedSketchSize
