@@ -1107,6 +1107,9 @@ cdef class Mapper(_Parameterized):
             the blocks allowing to query the mapper in parallel for
             several individual genomes.
 
+        .. versionadded:: 0.4.0
+           The `threads` argument.
+
         """
         # delegate to C code
         return self._query_draft(contigs, threads=threads)
@@ -1135,6 +1138,9 @@ cdef class Mapper(_Parameterized):
             This method is reentrant and releases the GIL when hashing
             the blocks allowing to query the mapper in parallel for
             several individual genomes.
+
+        .. versionadded:: 0.4.0
+           The `threads` argument.
 
         """
         # delegate to C code
