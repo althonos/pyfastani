@@ -8,7 +8,7 @@ import sys
 import warnings
 from itertools import islice
 
-sys.path.insert(0, os.path.realpath(os.path.join(__file__, "..", "..")))
+sys.path.insert(0, os.path.realpath(os.path.join(__file__, "..", "..", "..")))
 
 import Bio.SeqIO
 import numpy
@@ -25,7 +25,7 @@ args = parser.parse_args()
 
 genomes = [
     list(Bio.SeqIO.parse(filename, "fasta"))
-    for filename in (glob.glob("data/*.fna") + glob.glob("vendor/FastANI/data/*.fna"))
+    for filename in glob.glob(os.path.join(args.data, "*.fna"))
 ]
 
 with rich.progress.Progress(transient=True) as progress:
