@@ -526,6 +526,7 @@ extensions = [
         include_dirs=[
             "include",
             "pyfastani",
+            os.path.join("vendor", "cpu_features", "include"),
             os.path.join("vendor", "boost-math", "include"),
             os.path.join("pyfastani", "_sequtils"),
         ],
@@ -539,7 +540,12 @@ extensions = [
     Extension(
         "pyfastani._fasta",
         [os.path.join("pyfastani", "_fasta.pyx")],
-        include_dirs=["include", "pyfastani", os.path.join("pyfastani", "simd")],
+        include_dirs=[
+            "include",
+            "pyfastani",
+            os.path.join("vendor", "cpu_features", "include"),
+            os.path.join("pyfastani", "simd")
+        ],
         language="c",
         libraries=["sequtils"],
     )
