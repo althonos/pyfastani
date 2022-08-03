@@ -149,6 +149,92 @@ jobs:
     - name: Run tests without coverage
       run: python -m unittest pyfastani.tests -vv
 
+  wheel-linux-aarch64:
+    runs-on: ubuntu-latest
+    name: Build Linux Aarch64 wheels
+    strategy:
+      matrix:
+        include:
+        - python-version: 3.6
+          pyo3-python: /opt/python/cp36-cp36m/bin/python
+          image-tag: latest
+        - python-version: 3.7
+          pyo3-python: /opt/python/cp37-cp37m/bin/python
+          image-tag: latest
+        - python-version: 3.8
+          pyo3-python: /opt/python/cp38-cp38/bin/python
+          image-tag: latest
+        - python-version: 3.9
+          pyo3-python: /opt/python/cp39-cp39/bin/python
+          image-tag: latest
+        - python-version: '3.10'
+          pyo3-python: /opt/python/cp310-cp310/bin/python
+          image-tag: latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+      with:
+        submodules: true
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v1
+    - name: Build manylinux wheels
+      uses: addnab/docker-run-action@v2
+      with:
+        image: quay.io/pypa/manylinux2014_aarch64:${{ matrix.image-tag }}
+        options: -v ${{ github.workspace }}:/io -e TERM=$TERM
+        shell: bash
+        run: |
+          ${{ matrix.pyo3-python }} -m pip install -U -r /io/.github/workflows/requirements.txt
+          ${{ matrix.pyo3-python }} -m pip wheel -vv /io -w /tmp
+          for whl in /tmp/*.whl; do ${{ matrix.pyo3-python }} -m auditwheel repair $whl -w /io/dist; done
+    - name: Store built wheels
+      uses: actions/upload-artifact@v2
+      with:
+        name: dist
+        path: dist/*
+
+  test-linux-aarch64:
+    runs-on: ubuntu-latest
+    name: Test Linux Aarch64 wheels
+    needs:
+    - wheel-linux-aarch64
+    strategy:
+      matrix:
+        include:
+        - python-version: 3.6
+          pyo3-python: /opt/python/cp36-cp36m/bin/python
+          image-tag: latest
+        - python-version: 3.7
+          pyo3-python: /opt/python/cp37-cp37m/bin/python
+          image-tag: latest
+        - python-version: 3.8
+          pyo3-python: /opt/python/cp38-cp38/bin/python
+          image-tag: latest
+        - python-version: 3.9
+          pyo3-python: /opt/python/cp39-cp39/bin/python
+          image-tag: latest
+        - python-version: '3.10'
+          pyo3-python: /opt/python/cp310-cp310/bin/python
+          image-tag: latest
+    steps:
+    - name: Download built wheels
+      uses: actions/download-artifact@v2
+      with:
+          name: dist
+          path: dist
+    - name: Set up QEMU
+      id: qemu
+      uses: docker/setup-qemu-action@v1
+    - name: Test built wheels
+      uses: addnab/docker-run-action@v2
+      with:
+        image: quay.io/pypa/manylinux2014_aarch64:${{ matrix.image-tag }}
+        options: -v ${{ github.workspace }}:/io -e TERM=$TERM
+        shell: bash
+        run: |
+          ${{ matrix.pyo3-python }} -m pip install pyfastani --no-index --find-links=/io/dist
+          ${{ matrix.pyo3-python }} -m unittest pyfastani.tests -vv
+
   # wheel-windows:
   #   runs-on: windows-latest
   #   name: Build Windows wheels
@@ -263,6 +349,8 @@ jobs:
     - test-sdist
     - wheel-linux
     - test-linux
+    - wheel-linux-aarch64
+    - test-linux-aarch64
     - wheel-osx
     - test-osx
     # - wheel-windows
@@ -321,7 +409,7 @@ jobs:
     - name: Extract package version
       run: echo PKGVER=$(python setup.py --version) >> $GITHUB_ENV
     - name: Compute SHA256 of source distribution
-      run: echo SHA256=$(sha256sum dist/pyrodigal-${{ env.PKGVER }}.tar.gz | cut -f1 -d' ') >> $GITHUB_ENV
+      run: echo SHA256=$(sha256sum dist/pyfastani-${{ env.PKGVER }}.tar.gz | cut -f1 -d' ') >> $GITHUB_ENV
     - name: Generate PKGBUILD
       run: sed -e "s/%pkgver/${{ env.PKGVER }}/g" -e "s/%sha256sum/${{ env.SHA256 }}/g" pkg/aur/PKGBUILD.in > pkg/aur/PKGBUILD
     - name: Update package
