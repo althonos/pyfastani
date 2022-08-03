@@ -963,7 +963,7 @@ cdef class Mapper(_Parameterized):
                 final_mappings._vec
             )
 
-    cdef list _query_draft(self, object contigs):
+    cdef list _query_draft(self, object contigs, int threads=0):
         """Query the sketcher for the given contigs.
 
         Adapted from the ``skch::Map::mapQuery`` method in ``computeMap.hpp``.
@@ -1002,7 +1002,7 @@ cdef class Mapper(_Parameterized):
         final_mappings = _FinalMappings.__new__(_FinalMappings)
 
         # spawn a thread pool to map fragments in parallel for all the contigs
-        with multiprocessing.pool.ThreadPool() as pool:
+        with multiprocessing.pool.ThreadPool(threads or None) as pool:
             for contig in contigs:
                 # check length of contig is enough for computing mapping
                 slen = len(contig)
@@ -1082,14 +1082,17 @@ cdef class Mapper(_Parameterized):
                 ))
         return hits
 
-    cpdef list query_draft(self, object contigs):
-        """query_draft(self, contigs)\n--
+    cpdef list query_draft(self, object contigs, int threads=0):
+        """query_draft(self, contigs, threads=0)\n--
 
         Query the mapper for a complete genome.
 
         Arguments:
-            contigs (iterable or `str` or `bytes`): The genome to query the mapper
-                with.
+            contigs (iterable or `str` or `bytes`): The genome to query the
+                mapper with.
+            threads (`int`): The number of threads to use to run the
+                fragment mapping in parallel. Pass *0* (the default) to
+                auto-detect the number of threads on the local machine.
 
         Returns:
             `list` of `~pyfastani.Hit`: The hits found for the query.
@@ -1106,16 +1109,19 @@ cdef class Mapper(_Parameterized):
 
         """
         # delegate to C code
-        return self._query_draft(contigs)
+        return self._query_draft(contigs, threads=threads)
 
-    cpdef list query_genome(self, object sequence):
-        """query_genome(self, sequence)\n--
+    cpdef list query_genome(self, object sequence, int threads=0):
+        """query_genome(self, sequence, threads=0)\n--
 
         Query the mapper for a complete genome.
 
         Arguments:
             sequence (`str` or `bytes`): The closed genome to query the
                 mapper with.
+            threads (`int`): The number of threads to use to run the
+                fragment mapping in parallel. Pass *0* (the default) to
+                auto-detect the number of threads on the local machine.
 
         Returns:
             `list` of `~pyfastani.Hit`: The hits found for the query.
@@ -1132,7 +1138,7 @@ cdef class Mapper(_Parameterized):
 
         """
         # delegate to C code
-        return self._query_draft((sequence,))
+        return self._query_draft((sequence,), threads=threads)
 
 
 cdef class Minimizers:
