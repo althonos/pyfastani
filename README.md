@@ -1,6 +1,7 @@
 # 🐍⏩🧬 PyFastANI [![Stars](https://img.shields.io/github/stars/althonos/pyfastani.svg?style=social&maxAge=3600&label=Star)](https://github.com/althonos/pyfastani/stargazers)
 
-*[Cython](https://cython.org/) bindings and Python interface to [FastANI](https://github.com/ParBLiSS/FastANI/), a method for fast whole-genome similarity estimation.*
+*[Cython](https://cython.org/) bindings and Python interface to [FastANI](https://github.com/ParBLiSS/FastANI/), a method for fast whole-genome similarity estimation.
+**Now with multithreading!***
 
 [![Actions](https://img.shields.io/github/workflow/status/althonos/pyfastani/Test/main.svg?logo=github&style=flat-square&maxAge=300)](https://github.com/althonos/pyfastani/actions)
 [![Coverage](https://img.shields.io/codecov/c/gh/althonos/pyfastani/branch/main.svg?style=flat-square&maxAge=3600)](https://codecov.io/gh/althonos/pyfastani/)
@@ -44,6 +45,8 @@ FastANI internals, which has the following advantages over CLI wrappers:
 - **sans I/O**: Everything happens in memory, in Python objects you control,
   making it easier to pass your sequences to FastANI
   without needing to write them to a temporary file.
+- **multi-threading**: Genome query resolves the fragment mapping step in
+  parallel, leading to shorter querying times even with a single genome.
 
 *This library is still a work-in-progress, and in an experimental stage,
 but it should already pack enough features to be used in a standard pipeline.*
@@ -129,6 +132,25 @@ hits = mapper.query_genome(query.values.view('B'))
 for hit in hits:
     print("E. coli K12 MG1655", hit.name, hit.identity, hit.matches, hit.fragments)
 ```
+
+## ⏱️ Benchmarks
+
+In the original FastANI tool, multi-threading was only used to improve the
+performance of many-to-many searches: each thread would have a chunk of the
+reference genomes, and querying would be done in parallel for each reference.
+However, with a small set of reference genomes, there may not be enough for
+all the threads to work, so it cannot scale with a large number of threads. In
+addition, this causes the same query genome to be hashed several times, which
+is not optimal. In `pyfastani`, multi-threading is used to compute the hashes and mapping of query genome fragments. This allows parallelism to be useful even
+when a only few reference genomes are available.
+
+The benchmarks below show the time for querying a single genome (with
+`Mapper.query_draft`) using a variable number of threads. *Benchmarks
+were run on a [i7-8550U CPU](https://www.intel.fr/content/www/fr/fr/products/sku/122589/) running @1.80GHz with 4 physical / 8 logical
+cores, using 50 bacterial genomes from the [proGenomes](https://progenomes.embl.de/) database.
+For clarity, only 5 randomly-selected genomes are shown on the second graph. Each run was repeated 3 times.*
+
+![Benchmarks](https://raw.githubusercontent.com/althonos/pyfastani/main/benches/mapping/v0.4.0.svg)
 
 ## 💭 Feedback
 
