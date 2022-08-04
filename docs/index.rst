@@ -79,6 +79,8 @@ FastANI internals, which has the following advantages over CLI wrappers:
 - **sans I/O**: Everything happens in memory, in Python objects you control,
   making it easier to pass your sequences to FastANI
   without needing to write them to a temporary file.
+- **multi-threading**: Genome query resolves the fragment mapping step in
+  parallel, leading to shorter querying times even with a single genome.
 
 
 Setup
