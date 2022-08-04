@@ -6,11 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyrodigal/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/althonos/pyrodigal/compare/v0.4.0...HEAD
 
 
 ## [v0.4.0] - 2022-08-04
-[v0.3.1]: https://github.com/althonos/pyrodigal/compare/v0.3.1...v0.4.0
+[v0.4.0]: https://github.com/althonos/pyrodigal/compare/v0.3.1...v0.4.0
 
 ### Added
 - Multi-threaded computation of fragment mapping in `Mapper.query_draft` and `Mapper.query_genome`.
