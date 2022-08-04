@@ -35,6 +35,31 @@ $ python setup.py build_ext --debug --inplace
 $ python -m unittest discover -vv
 ```
 
+## Running benchmarks
+
+### Query fragments mapping
+
+The `benches` folder contains benchmarks for evaluating the performance of
+the node connection scoring step, essentially to make sure that the
+multi-threading makes it faster.
+
+Start by building `pyfastani` locally:
+```console
+$ python setup.py build_ext --inplace
+```
+
+Then make sure you have the required packages and data:
+```console
+$ pip install --user -r benches/mapping/requirements.txt
+$ python benches/data/download.py
+```
+
+Finally, run the benchmarks and plot the results:
+```console
+$ python benches/mapping/bench.py -d benches/data/ -o times.json
+$ python benches/mapping/plot.py -i times.json --show
+```
+
 ## Coding guidelines
 
 This project targets Python 3.6 or later.

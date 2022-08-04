@@ -1,0 +1,7 @@
+biopython
+numpy
+pandas
+rich
+matplotlib
+scipy
+palettable

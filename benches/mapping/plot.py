@@ -12,7 +12,6 @@ import scipy.stats
 from scipy.optimize import curve_fit
 from numpy.polynomial import Polynomial
 from palettable.cartocolors.qualitative import Prism_10
-from mpl_toolkits.mplot3d import Axes3D
 
 random.seed(0)
 
