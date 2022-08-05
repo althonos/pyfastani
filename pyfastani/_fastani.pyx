@@ -1212,9 +1212,9 @@ cdef class Minimizers:
 
     cpdef dict __getstate__(self):
         cdef MinimizerInfo_t mini
-        cdef object          hashes  = array.array("L")
-        cdef object          ids     = array.array("l")
-        cdef object          offsets = array.array("l")
+        cdef list            hashes  = []
+        cdef list            ids     = []
+        cdef list            offsets = []
         cdef size_t          length  = 0
         if self._minimizers != NULL:
             length = self._minimizers.size()
@@ -1232,9 +1232,9 @@ cdef class Minimizers:
     cpdef object __setstate__(self, dict state):
         cdef size_t i
         cdef size_t length  = state["length"]
-        cdef object hashes  = state["hashes"]
-        cdef object ids     = state["ids"]
-        cdef object offsets = state["offsets"]
+        cdef list   hashes  = state["hashes"]
+        cdef list   ids     = state["ids"]
+        cdef list   offsets = state["offsets"]
         if self._minimizers == NULL:
             self._minimizers = new vector[MinimizerInfo_t]()
         self._minimizers.resize(length)
