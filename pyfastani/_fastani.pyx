@@ -442,6 +442,7 @@ cdef class Sketch(_Parameterized):
     cdef          vector[uint64_t] _lengths     # array mapping each genome to its length
     cdef          list             _names       # list mapping each genome to its name
     cdef readonly Minimizers        minimizers  # a view over the minimizers
+    cdef readonly object           _lock        # a lock to prevent concurrency crashes
 
     # --- Magic methods ------------------------------------------------------
 
@@ -519,7 +520,6 @@ cdef class Sketch(_Parameterized):
         self._param.p_value = p_value
         self._param.percentageIdentity = percentage_identity
         self._param.referenceSize = reference_size
-
         if protein:
             self._param.alphabetSize = 20
             self._param.windowSize = 1
@@ -533,6 +533,9 @@ cdef class Sketch(_Parameterized):
                 self._param.minReadLength,
                 self._param.referenceSize
             )
+
+        # use a Python lock to avoid data races
+        self._lock = threading.Lock()
 
         # initialize bookkeeping values and make sure self._sk is cleared
         # (in case __init__ is called more than once)
@@ -688,7 +691,8 @@ cdef class Sketch(_Parameterized):
 
         """
         # delegate to the C code
-        self._add_draft(name, contigs)
+        with self._lock:
+            self._add_draft(name, contigs)
         return self
 
     cpdef Sketch add_genome(self, object name, object sequence):
@@ -714,7 +718,8 @@ cdef class Sketch(_Parameterized):
 
         """
         # delegate to the C code
-        self._add_draft(name, (sequence,))
+        with self._lock:
+            self._add_draft(name, (sequence,))
         return self
 
     cpdef Sketch clear(self):
