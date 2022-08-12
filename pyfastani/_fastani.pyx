@@ -821,28 +821,22 @@ cdef class Mapper(_Parameterized):
             "sketch": {
                 "sequencesByFileInfo": list(self._sk.sequencesByFileInfo),
                 "minimizers": self.minimizers.__getstate__(),
-                "minimizerFreqHistogram": dict(self._sk.minimizerFreqHistogram),
-                "minimizerPosLookupIndex": self.lookup_index,
             }
         }
 
     def __setstate__(self, state):
+        # restore parameters
         _Parameterized.__setstate__(self, state["parameters"])
         self._lengths = state["lengths"]
         self._names = state["names"]
-
-        self._sk.minimizerFreqHistogram = state["sketch"]["minimizerFreqHistogram"]
+        # restore minimizers
         self._sk.sequencesByFileInfo = state["sketch"]["sequencesByFileInfo"]
         self.minimizers.__setstate__(state["sketch"]["minimizers"])
-
-        cdef Position pos
-        cdef vector[MinimizerMetaData_t] map_value
-        self._sk.minimizerPosLookupIndex = unordered_map[MinimizerMapKeyType_t, MinimizerMapValueType_t]()
-        for key, value in state["sketch"]["minimizerPosLookupIndex"].items():
-            map_value = vector[MinimizerMetaData_t]()
-            for pos in value:
-                map_value.push_back(pos.to_raw())
-            self._sk.minimizerPosLookupIndex.insert(pair[MinimizerMapKeyType_t, MinimizerMapValueType_t](key, map_value))
+        # recompute index and histogram
+        self._sk.minimizerPosLookupIndex.clear()
+        self._sk.index()
+        self._sk.minimizerFreqHistogram.clear()
+        self._sk.computeFreqHist()
 
     # --- Properties ---------------------------------------------------------
 
