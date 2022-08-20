@@ -1108,6 +1108,9 @@ cdef class Mapper(_Parameterized):
                     matches=result.countSeq,
                     fragments=result.totalQueryFragments,
                 ))
+
+        # sort and the hits
+        hits.sort(key=lambda hit: hit.identity, reverse=True)
         return hits
 
     cpdef list query_draft(self, object contigs, int threads=0):
