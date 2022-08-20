@@ -1042,6 +1042,7 @@ cdef class Mapper(_Parameterized):
                         ),
                         UserWarning,
                     )
+                    continue
                 # get a way to read each letter of the contig,
                 # independently of it being `str`, `bytes`, `bytearray`, etc.
                 if isinstance(contig, str):
