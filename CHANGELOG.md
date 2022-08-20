@@ -6,7 +6,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyrodigal/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/althonos/pyrodigal/compare/v0.4.1...HEAD
+
+
+## [v0.4.1] - 2022-08-20
+[v0.4.1]: https://github.com/althonos/pyrodigal/compare/v0.4.0...v0.4.1
+
+### Changed
+- Use lists instead of arrays to store state of `Minimizers` when pickling.
+- Skip serialization of minimizer index to reduce total state size.
+- Make `Mapper.query_draft` and `Mapper.query_genome` return hits sorted by identity in descending order.
 
 
 ## [v0.4.0] - 2022-08-04
