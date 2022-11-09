@@ -18,7 +18,7 @@
 [![Docs](https://img.shields.io/readthedocs/pyfastani/latest?style=flat-square&maxAge=600)](https://pyfastani.readthedocs.io)
 [![Changelog](https://img.shields.io/badge/keep%20a-changelog-8A0707.svg?maxAge=2678400&style=flat-square)](https://github.com/althonos/pyfastani/blob/master/CHANGELOG.md)
 [![Downloads](https://img.shields.io/badge/dynamic/json?style=flat-square&color=303f9f&maxAge=86400&label=downloads&query=%24.total_downloads&url=https%3A%2F%2Fapi.pepy.tech%2Fapi%2Fprojects%2Fpyfastani)](https://pepy.tech/project/pyfastani)
-[![DOI](https://img.shields.io/badge/doi-10.5281%2Fzenodo.4940237-purple?style=flat-square&maxAge=86400)](https://doi.org/10.5281/zenodo.4940237)
+[![Talk](https://img.shields.io/badge/talk-10.7490%2Ff1000research.1119176.1-f2673c?style=flat-square&maxAge=86400)](https://doi.org/10.7490/f1000research.1119176.1)
 
 
 ## 🗺️ Overview
@@ -151,6 +151,16 @@ cores, using 50 bacterial genomes from the [proGenomes](https://progenomes.embl.
 For clarity, only 5 randomly-selected genomes are shown on the second graph. Each run was repeated 3 times.*
 
 ![Benchmarks](https://raw.githubusercontent.com/althonos/pyfastani/main/benches/mapping/v0.4.0.svg)
+
+## 🔖 Citation
+
+PyFastANI is scientific software; it was presented among other optimized 
+software at the [European Student Council Symposium (ESCS) 2022](https://www.escs2022.iscbsc.org/) during [ECCB 2022](https://eccb2022.org/). Please 
+cite both [PyFastANI](https://doi.org/10.7490/f1000research.1119176.1) and [FastANI](https://www.nature.com/articles/s41467-018-07641-9) if you are using it in an academic work,
+for instance as:
+
+> PyFastANI (Larralde, 2022), a Python library with optimized bindings to FastANI (Jain *et al.*, 2018). 
+
 
 ## 💭 Feedback
 
