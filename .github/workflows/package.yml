@@ -23,6 +23,8 @@ jobs:
           pyo3-python: /opt/python/cp39-cp39/bin/python
         - python-version: '3.10'
           pyo3-python: /opt/python/cp310-cp310/bin/python
+        - python-version: '3.11'
+          pyo3-python: /opt/python/cp311-cp311/bin/python
         - python-version: pypy-3.7
           pyo3-python: /opt/python/pp37-pypy37_pp73/bin/python
         - python-version: pypy-3.8
@@ -63,6 +65,7 @@ jobs:
         - 3.8
         - 3.9
         - '3.10'
+        - '3.11'
         - pypy-3.7
         - pypy-3.8
         - pypy-3.9
@@ -94,6 +97,7 @@ jobs:
         - 3.8
         - 3.9
         - '3.10'
+        - '3.11'
         - pypy-3.7
         - pypy-3.8
         - pypy-3.9
@@ -129,6 +133,7 @@ jobs:
         - 3.8
         - 3.9
         - '3.10'
+        - '3.11'
         - pypy-3.7
         - pypy-3.8
         - pypy-3.9
@@ -169,6 +174,9 @@ jobs:
           image-tag: latest
         - python-version: '3.10'
           pyo3-python: /opt/python/cp310-cp310/bin/python
+          image-tag: latest
+        - python-version: '3.11'
+          pyo3-python: /opt/python/cp311-cp311/bin/python
           image-tag: latest
     steps:
     - name: Checkout code
@@ -215,6 +223,9 @@ jobs:
           image-tag: latest
         - python-version: '3.10'
           pyo3-python: /opt/python/cp310-cp310/bin/python
+          image-tag: latest
+        - python-version: '3.11'
+          pyo3-python: /opt/python/cp311-cp311/bin/python
           image-tag: latest
     steps:
     - name: Download built wheels
@@ -304,10 +315,10 @@ jobs:
       uses: actions/checkout@v2
       with:
         submodules: true
-    - name: Set up Python 3.10
+    - name: Set up Python 3.11
       uses: actions/setup-python@v2
       with:
-        python-version: '3.10'
+        python-version: '3.11'
     - name: Install build requirements
       run: python -m pip install -r .github/workflows/requirements.txt
     - name: Build wheel distribution
@@ -324,10 +335,10 @@ jobs:
     needs:
     - sdist
     steps:
-    - name: Setup Python 3.10
+    - name: Setup Python 3.11
       uses: actions/setup-python@v2
       with:
-        python-version: '3.10'
+        python-version: '3.11'
     - name: Download built wheels
       uses: actions/download-artifact@v2
       with:
@@ -397,10 +408,10 @@ jobs:
       uses: actions/checkout@v2
       with:
         submodules: true
-    - name: Set up Python 3.10
+    - name: Set up Python 3.11
       uses: actions/setup-python@v2
       with:
-        python-version: '3.10'
+        python-version: '3.11'
     - name: Download source distribution
       uses: actions/download-artifact@v2
       with:
