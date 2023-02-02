@@ -9,7 +9,7 @@ PyFastANI |Stars|
 
 |Actions| |Coverage| |PyPI| |Bioconda| |AUR| |Wheel| |Versions| |Implementations| |License| |Source| |Mirror| |Issues| |Docs| |Changelog| |Downloads|
 
-.. |Actions| image:: https://img.shields.io/github/workflow/status/althonos/pyfastani/Test/main?logo=github&style=flat-square&maxAge=300
+.. |Actions| image:: https://img.shields.io/github/actions/workflow/status/althonos/pyfastani/test.yml?branch=main&logo=github&style=flat-square&maxAge=300
    :target: https://github.com/althonos/pyfastani/actions
 
 .. |Coverage| image:: https://img.shields.io/codecov/c/gh/althonos/pyfastani/branch/main.svg?style=flat-square&maxAge=600
