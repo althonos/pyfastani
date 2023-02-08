@@ -33,7 +33,7 @@ if __doc__ is not None:
     __doc__ += """See Also:
     An online rendered version of the documentation for this version
     of the library on
-    `Read The Docs <https://pytrimal.readthedocs.io/en/v{}/>`_.
+    `Read The Docs <https://pyfastani.readthedocs.io/en/v{}/>`_.
 
     """.format(
         __version__
