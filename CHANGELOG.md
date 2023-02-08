@@ -6,11 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyrodigal/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/althonos/pyfastani/compare/v0.4.1...HEAD
 
 
 ## [v0.4.1] - 2022-08-20
-[v0.4.1]: https://github.com/althonos/pyrodigal/compare/v0.4.0...v0.4.1
+[v0.4.1]: https://github.com/althonos/pyfastani/compare/v0.4.0...v0.4.1
 
 ### Changed
 - Use lists instead of arrays to store state of `Minimizers` when pickling.
@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [v0.4.0] - 2022-08-04
-[v0.4.0]: https://github.com/althonos/pyrodigal/compare/v0.3.1...v0.4.0
+[v0.4.0]: https://github.com/althonos/pyfastani/compare/v0.3.1...v0.4.0
 
 ### Added
 - Multi-threaded computation of fragment mapping in `Mapper.query_draft` and `Mapper.query_genome`.
@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [v0.3.1] - 2022-07-22
-[v0.3.1]: https://github.com/althonos/pyrodigal/compare/v0.3.0...v0.3.1
+[v0.3.1]: https://github.com/althonos/pyfastani/compare/v0.3.0...v0.3.1
 
 ### Added
 - Slightly improve documentation in some classes.
@@ -39,7 +39,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [v0.3.0] - 2022-07-17
-[v0.3.0]: https://github.com/althonos/pyrodigal/compare/v0.2.1...v0.3.0
+[v0.3.0]: https://github.com/althonos/pyfastani/compare/v0.2.1...v0.3.0
 
 ### Added
 - `pickle` protocol implementation to `Mapper` and `Sketch` via `__getstate__` and `__setstate__`.
@@ -56,14 +56,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [v0.2.1] - 2021-06-20
-[v0.2.1]: https://github.com/althonos/pyrodigal/compare/v0.2.0...v0.2.1
+[v0.2.1]: https://github.com/althonos/pyfastani/compare/v0.2.0...v0.2.1
 
 ### Fixed
 - Missing header files in the `tar.gz` distribution, preventing compilation of the wheel from source.
 
 
 ## [v0.2.0] - 2021-06-20
-[v0.2.0]: https://github.com/althonos/pyrodigal/compare/v0.1.2...v0.2.0
+[v0.2.0]: https://github.com/althonos/pyfastani/compare/v0.1.2...v0.2.0
 
 ### Added
 - `Sketch.clear` method to remove all sequences currently in a `Sketch` and reset the list of minimizers.
@@ -76,20 +76,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [v0.1.2] - 2021-06-15
-[v0.1.2]: https://github.com/althonos/pyrodigal/compare/v0.1.1...v0.1.2
+[v0.1.2]: https://github.com/althonos/pyfastani/compare/v0.1.1...v0.1.2
 
 ### Changed
 - Querying functions now release GIL to allow efficient parallel querying.
 
 
 ## [v0.1.1] - 2021-06-13
-[v0.1.1]: https://github.com/althonos/pyrodigal/compare/v0.1.0...v0.1.1
+[v0.1.1]: https://github.com/althonos/pyfastani/compare/v0.1.0...v0.1.1
 
 ### Fixed
 - Source distribution missing Cython and C++ sources, thus preventing compilation.
 
 
 ## [v0.1.0] - 2021-06-13
-[v0.1.0]: https://github.com/althonos/pyrodigal/compare/4bd3017...v0.1.0
+[v0.1.0]: https://github.com/althonos/pyfastani/compare/4bd3017...v0.1.0
 
 Initial release.
