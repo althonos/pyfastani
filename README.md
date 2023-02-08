@@ -23,8 +23,9 @@
 
 ## 🗺️ Overview
 
-FastANI is a method published in 2018 by Jain *et al.* for high-throughput
-computation of whole-genome [Average Nucleotide Identity (ANI)](https://img.jgi.doe.gov/docs/ANI.pdf).
+FastANI is a method published in 2018 by [Chirag Jain](https://github.com/cjain7)
+*et al.* for high-throughput computation of whole-genome
+[Average Nucleotide Identity (ANI)](https://img.jgi.doe.gov/docs/ANI.pdf).
 It uses [MashMap](https://github.com/marbl/MashMap) to compute orthologous mappings
 without the need for expensive alignments.
 
@@ -154,13 +155,20 @@ For clarity, only 5 randomly-selected genomes are shown on the second graph. Eac
 
 ## 🔖 Citation
 
-PyFastANI is scientific software; it was presented among other optimized 
-software at the [European Student Council Symposium (ESCS) 2022](https://www.escs2022.iscbsc.org/) during [ECCB 2022](https://eccb2022.org/). Please 
+PyFastANI is scientific software; it was presented among other optimized
+software at the [European Student Council Symposium (ESCS) 2022](https://www.escs2022.iscbsc.org/) during [ECCB 2022](https://eccb2022.org/). Please
 cite both [PyFastANI](https://doi.org/10.7490/f1000research.1119176.1) and [FastANI](https://www.nature.com/articles/s41467-018-07641-9) if you are using it in an academic work,
 for instance as:
 
-> PyFastANI (Larralde, 2022), a Python library with optimized bindings to FastANI (Jain *et al.*, 2018). 
+> PyFastANI (Larralde, 2022), a Python library with optimized bindings to FastANI (Jain *et al.*, 2018).
 
+## 🔎 See Also
+
+Computing ANI for metagenomic sequences? You may be interested in
+[`pyskani`, a Python package for computing ANI](https://github.com/althonos/pyskani)
+using the [`skani` method](https://www.biorxiv.org/content/10.1101/2023.01.18.524587v1)
+developed by [Jim Shaw](https://jim-shaw-bluenote.github.io/)
+and [Yun William Yu](https://github.com/yunwilliamyu).
 
 ## 💭 Feedback
 
