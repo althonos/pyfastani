@@ -78,7 +78,7 @@ jobs:
         CIBW_BEFORE_BUILD: pip install cython
         CIBW_BUILD_VERBOSITY: 2
         CIBW_TEST_COMMAND: python -m unittest pyfastani.tests -vv
-        CIBW_TEST_REQUIRES: importlib-resources
+        CIBW_TEST_REQUIRES: importlib-resources biopython scikit-bio
       with:
         output-dir: dist
     - uses: actions/upload-artifact@v3
@@ -117,7 +117,7 @@ jobs:
         CIBW_BEFORE_BUILD: pip install cython
         CIBW_BUILD_VERBOSITY: 2
         CIBW_TEST_COMMAND: python -m unittest pyfastani.tests -vv
-        CIBW_TEST_REQUIRES: importlib-resources
+        CIBW_TEST_REQUIRES: importlib-resources biopython scikit-bio
       with:
         output-dir: dist
     - uses: actions/upload-artifact@v3
@@ -152,7 +152,7 @@ jobs:
         CIBW_BEFORE_BUILD: pip install cython
         CIBW_BUILD_VERBOSITY: 2
         CIBW_TEST_COMMAND: python -m unittest pyfastani.tests -vv
-        CIBW_TEST_REQUIRES: importlib-resources
+        CIBW_TEST_REQUIRES: importlib-resources biopython scikit-bio
       with:
         output-dir: dist
     - uses: actions/upload-artifact@v3
