@@ -17,7 +17,7 @@
 [![Issues](https://img.shields.io/github/issues/althonos/pyfastani.svg?style=flat-square&maxAge=600)](https://github.com/althonos/pyfastani/issues)
 [![Docs](https://img.shields.io/readthedocs/pyfastani/latest?style=flat-square&maxAge=600)](https://pyfastani.readthedocs.io)
 [![Changelog](https://img.shields.io/badge/keep%20a-changelog-8A0707.svg?maxAge=2678400&style=flat-square)](https://github.com/althonos/pyfastani/blob/master/CHANGELOG.md)
-[![Downloads](https://img.shields.io/badge/dynamic/json?style=flat-square&color=303f9f&maxAge=86400&label=downloads&query=%24.total_downloads&url=https%3A%2F%2Fapi.pepy.tech%2Fapi%2Fprojects%2Fpyfastani)](https://pepy.tech/project/pyfastani)
+[![Downloads](https://img.shields.io/pypi/dm/pyfastani?style=flat-square&color=303f9f&maxAge=86400&label=downloads)](https://pepy.tech/project/pyfastani)
 [![Talk](https://img.shields.io/badge/talk-10.7490%2Ff1000research.1119176.1-f2673c?style=flat-square&maxAge=86400)](https://doi.org/10.7490/f1000research.1119176.1)
 
 
