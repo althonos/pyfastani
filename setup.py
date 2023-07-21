@@ -41,6 +41,9 @@ PROCESSOR_IS_POWER = PLATFORM_MACHINE.startswith(("powerpc", "ppc"))
 
 # --- Utils ------------------------------------------------------------------
 
+def _eprint(*args, **kwargs):
+    print(*args, **kwargs, file=sys.stderr)
+
 def _split_multiline(value):
     value = value.strip()
     sep = max('\n,;', key=value.count)
@@ -149,18 +152,6 @@ class build_clib(_build_clib):
     """A custom `build_clib` that compiles out of source.
     """
 
-    # --- Silent invocation of the compiler ---
-
-    def _silent_spawn(self, cmd):
-        try:
-            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-        except subprocess.CalledProcessError as err:
-            raise CompileError(err.stderr)
-
-    def _silent_compile(self, *args, **kwargs):
-        with mock.patch.object(self.compiler, "spawn", new=self._silent_spawn):
-            return self.compiler.compile(*args, **kwargs)
-
     # --- Compatibility with base `build_clib` command ---
 
     def check_library_list(self, libraries):
@@ -226,14 +217,14 @@ class build_clib(_build_clib):
 
     def _has_getauxval(self):
         self.mkpath(self.build_temp)
-        filename = os.path.join(self.build_temp, "test_dlopen.c")
+        filename = os.path.join(self.build_temp, "test_getauxval.c")
         with open(filename, "w") as f:
             f.write("""
                 #include <sys/getauxval.h>
                 int main() { getauxval(0); }
             """)
         try:
-            self._silent_compile([filename], debug=True)
+            self.compiler.compile([filename], debug=True)
         except CompileError:
             log.warn("could not find `getauxval` function from <sys/getauxval.h>")
             return False
@@ -295,7 +286,7 @@ class build_clib(_build_clib):
         for platform_code in library.platform_code:
             extra_preargs = library.extra_compile_args + platform_code.extra_compile_args
             try:
-                extra_objects.extend(self._silent_compile(
+                extra_objects.extend(self.compiler.compile(
                     platform_code.sources,
                     output_dir=self.build_temp,
                     include_dirs=library.include_dirs + [self.build_clib],
@@ -333,6 +324,47 @@ class build_ext(_build_ext):
     """
 
     # --- Autotools-like helpers ---
+
+    def _check_getid(self):
+        _eprint('checking whether `PyInterpreterState_GetID` is available')
+
+        base = "have_getid"
+        testfile = os.path.join(self.build_temp, "{}.c".format(base))
+        objects = []
+
+        self.mkpath(self.build_temp)
+        with open(testfile, "w") as f:
+            f.write("""
+            #include <stdint.h>
+            #include <stdlib.h>
+            #include <Python.h>
+
+            int main(int argc, char *argv[]) {{
+                PyInterpreterState_GetID(NULL);
+                return 0;
+            }}
+            """)
+
+        if self.compiler.compiler_type == "msvc":
+            flags = ["/WX"]
+        else:
+            flags = ["-Werror=implicit-function-declaration"]
+
+        try:
+            self.mkpath(self.build_temp)
+            objects = self.compiler.compile([testfile], extra_postargs=flags)
+        except CompileError:
+            _eprint("no")
+            return False
+        else:
+            _eprint("yes")
+            return True
+        finally:
+            os.remove(testfile)
+            for obj in filter(os.path.isfile, objects):
+                os.remove(obj)
+
+    # --- Build code ---
 
     def finalize_options(self):
         _build_ext.finalize_options(self)
@@ -392,7 +424,7 @@ class build_ext(_build_ext):
 
     def build_extensions(self):
         # remove universal compilation flags for OSX
-        if platform.system() == "Darwin":
+        if PLATFORM_SYSTEM == "Darwin":
             _patch_osx_compiler(self.compiler)
         # build the extensions as normal
         _build_ext.build_extensions(self)
@@ -410,6 +442,11 @@ class build_ext(_build_ext):
                 ext.define_macros.append(("CYTHON_TRACE_NOGIL", 1))
         else:
             ext.define_macros.append(("CYTHON_WITHOUT_ASSERTIONS", 1))
+
+        # check if `PyInterpreterState_GetID` is available
+        if self._check_getid():
+            ext.define_macros.append(("HAS_PYINTERPRETERSTATE_GETID", 1))
+        _build_ext.build_extension(self, ext)
 
         # C++ OS-specific options
         if ext.language == "c++":

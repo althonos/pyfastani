@@ -21,6 +21,10 @@ cdef extern from "<ctype.h>" nogil:
 
 import os
 
+# --- Patch for PyPy 3.9 -----------------------------------------------------
+
+include "_patch.pxi"
+
 
 # --- Cython classes ---------------------------------------------------------
 

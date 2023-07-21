@@ -105,6 +105,9 @@ cdef extern from *:
 
 MAX_KMER_SIZE = _MAX_KMER_SIZE
 
+# --- Patch for PyPy 3.9 -----------------------------------------------------
+
+include "_patch.pxi"
 
 # --- Cython helpers ---------------------------------------------------------
 
