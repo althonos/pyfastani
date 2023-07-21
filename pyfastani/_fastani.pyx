@@ -20,6 +20,17 @@ from cython.operator cimport dereference, preincrement, postincrement
 from cpython.ref cimport Py_INCREF
 from cpython.list cimport PyList_New, PyList_SET_ITEM
 from cpython.memoryview cimport PyMemoryView_FromMemory, PyMemoryView_Check, PyMemoryView_GET_BUFFER
+from cpython.unicode cimport (
+    Py_UCS1,
+    Py_UCS2,
+    PyUnicode_DATA,
+    PyUnicode_KIND,
+    PyUnicode_GET_LENGTH,
+    PyUnicode_1BYTE_KIND,
+    PyUnicode_2BYTE_KIND,
+    PyUnicode_4BYTE_KIND,
+)
+
 from libc.stdio cimport printf
 from libc.string cimport memcpy
 from libc.limits cimport INT_MAX
@@ -68,9 +79,13 @@ from fastani.map.base_types cimport (
 #       Cython at the moment, so we just `typedef kseq_t* kseq_ptr_t` in
 #       an external C++ header to make Cython happy
 from _utils cimport kseq_ptr_t, toupper, distance
-from _unicode cimport *
 from _sequtils cimport copy_upper, reverse_complement
 from _atomic_vector cimport atomic_vector
+
+# HACK: Cython defines `PyUnicode_READ` as GIL-holding but it's actually a 
+#       single pointer dereference, so this should be nogil 
+cdef extern from *:
+    Py_UCS4 PyUnicode_READ(int kind, void *data, Py_ssize_t index) noexcept nogil
 
 # --- Python imports ---------------------------------------------------------
 
