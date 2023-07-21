@@ -5,12 +5,13 @@
 
 from cpython cimport PyObject
 from cpython.bytes cimport PyBytes_FromStringAndSize
+from cpython.unicode cimport PyUnicode_1BYTE_KIND, PyUnicode_FromKindAndData
+
 from libc.stdlib cimport malloc, realloc, free
 from libc.stdio cimport FILE, fopen, fgets, fclose
 from libc.errno cimport errno
 from libc.string cimport strlen, memcpy, memset
 
-from _unicode cimport PyUnicode_1BYTE_KIND, PyUnicode_FromKindAndData
 from _sequtils cimport copy_upper
 
 cdef extern from "<ctype.h>" nogil:

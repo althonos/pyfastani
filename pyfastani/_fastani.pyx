@@ -29,6 +29,7 @@ from cpython.unicode cimport (
     PyUnicode_1BYTE_KIND,
     PyUnicode_2BYTE_KIND,
     PyUnicode_4BYTE_KIND,
+    PyUnicode_FromKindAndData,
 )
 
 from libc.stdio cimport printf
