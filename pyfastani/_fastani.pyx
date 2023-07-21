@@ -82,7 +82,12 @@ import warnings
 
 # --- Constants --------------------------------------------------------------
 
-DEF _MAX_KMER_SIZE = 2048
+cdef extern from *:
+    """
+    #define _MAX_KMER_SIZE 2048
+    """
+    const size_t _MAX_KMER_SIZE
+
 MAX_KMER_SIZE = _MAX_KMER_SIZE
 
 
@@ -95,7 +100,7 @@ cdef ssize_t _read_nucl(
     const ssize_t i,
     char* fwd,
     char* bwd,
-) nogil except -1:
+) except -1 nogil:
     """Read characters of a nucleotide sequence into `fwd` and `bwd` buffers.
 
     Reads at most _MAX_KMER_SIZE characters, and returns the number of
@@ -136,7 +141,7 @@ cdef int _add_minimizers_nucl(
     const int kmer_size,
     const int window_size,
     const seqno_t seq_counter,
-) nogil except 1:
+) except 1 nogil:
     """Add the minimizers for a single contig to the sketcher.
 
     Adapted from the ``skch::commonFunc::addMinimizers`` method in
@@ -203,7 +208,7 @@ cdef ssize_t _read_prot(
     const ssize_t slen,
     const ssize_t i,
     char* fwd,
-) nogil except -1:
+) except -1 nogil:
     cdef ssize_t j
     cdef ssize_t length
     cdef char    nuc
@@ -232,7 +237,7 @@ cdef int _add_minimizers_prot(
     const int kmer_size,
     const int window_size,
     const seqno_t seq_counter,
-) nogil except 1:
+) except 1 nogil:
     """Add the minimizers for a single protein to the sketcher.
 
     Adapted from the ``skch::commonFunc::addMinimizers`` method in
@@ -606,10 +611,6 @@ cdef class Sketch(_Parameterized):
             # get a way to read each letter of the contig,
             # independently of it being `str`, `bytes`, `bytearray`, etc.
             if isinstance(contig, str):
-                # make sure the unicode string is in canonical form,
-                # --> won't be needed anymore in Python 3.12
-                IF SYS_VERSION_INFO_MAJOR <= 3 and SYS_VERSION_INFO_MINOR < 12:
-                    PyUnicode_READY(contig)
                 # get kind and data for efficient indexing
                 kind = PyUnicode_KIND(contig)
                 data = PyUnicode_DATA(contig)
@@ -869,7 +870,7 @@ cdef class Mapper(_Parameterized):
         const ssize_t slen,
         QueryMetaData_t[kseq_ptr_t, vector[MinimizerInfo_t]]& query,
         vector[L1_candidateLocus_t]& l1_mappings,
-    ) nogil:
+    ) except * nogil:
         """Compute L1 mappings for the given sequence block.
 
         Adapted from the `skch::Map::doL1Mapping` in `computeMap.hpp` to avoid
@@ -1046,10 +1047,6 @@ cdef class Mapper(_Parameterized):
                 # get a way to read each letter of the contig,
                 # independently of it being `str`, `bytes`, `bytearray`, etc.
                 if isinstance(contig, str):
-                    # make sure the unicode string is in canonical form,
-                    # --> won't be needed anymore in Python 3.12
-                    IF SYS_VERSION_INFO_MAJOR <= 3 and SYS_VERSION_INFO_MINOR < 12:
-                        PyUnicode_READY(contig)
                     # get kind and data for efficient indexing
                     kind = PyUnicode_KIND(contig)
                     data = PyUnicode_DATA(contig)
