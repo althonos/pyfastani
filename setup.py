@@ -446,7 +446,6 @@ class build_ext(_build_ext):
         # check if `PyInterpreterState_GetID` is available
         if self._check_getid():
             ext.define_macros.append(("HAS_PYINTERPRETERSTATE_GETID", 1))
-        _build_ext.build_extension(self, ext)
 
         # C++ OS-specific options
         if ext.language == "c++":
