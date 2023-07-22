@@ -6,7 +6,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyfastani/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/althonos/pyfastani/compare/v0.5.0...HEAD
+
+
+## [v0.5.0] - 2023-07-22
+[v0.5.0]: https://github.com/althonos/pyfastani/compare/v0.4.1...v0.5.0
+
+### Changed
+- Bump Cython dependency to `v3.0`.
+
+### Fixed
+- Add missing signature of `Sketch.index` to type stubs.
+- PyPy builds failing on missing `PyInterpreterState_GetID` function.
 
 
 ## [v0.4.1] - 2022-08-20
