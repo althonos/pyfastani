@@ -1,2 +1,2 @@
 biopython   ; implementation_name == "cpython"
-scikit-bio  ; implementation_name == "cpython" and python_version >= '3.8'
+# scikit-bio  ; implementation_name == "cpython" and python_version >= '3.8'
