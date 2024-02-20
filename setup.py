@@ -437,7 +437,7 @@ class build_ext(_build_ext):
         # update compile flags if compiling in debug mode
         if self.debug:
             if self.compiler.compiler_type in {"unix", "cygwin", "mingw32"}:
-                ext.extra_compile_args.append("-Og")
+                ext.extra_compile_args.append("-g")
                 ext.extra_compile_args.append("--coverage")
                 ext.extra_link_args.append("--coverage")
             elif self.compiler.compiler_type == "msvc":
