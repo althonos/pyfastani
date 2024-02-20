@@ -14,11 +14,6 @@ static const X86Features features = GetX86Info().features;
 using namespace cpu_features;
 static const ArmFeatures features = GetArmInfo().features;
 #endif
-#ifdef __aarch64__
-#include "cpuinfo_aarch64.h"
-using namespace cpu_features;
-static const Aarch64Features features = GetAarch64Info().features;
-#endif
 
 extern "C" {
     // --- Fast copy with uppercase --------------------------------------------
@@ -49,16 +44,19 @@ extern "C" {
         #endif
         #ifdef __aarch64__
         #ifdef NEON_BUILD_SUPPORTED
-          if (features.neon)
-            return neon_copy_upper(dst, src, len);
-          else
+          return neon_copy_upper(dst, src, len);
         #endif
         #endif
-        #if defined(__x86__) || defined(__x86_64__)
+        #ifdef __x86__
         #ifdef SSE2_BUILD_SUPPORTED
           if (features.sse2)
-            return sse2_copy_upper(dst, src, len); // fast copying plus upper.
+            return sse2_copy_upper(dst, src, len);
           else
+        #endif
+        #endif
+        #ifdef __x86_64__
+        #ifdef SSE2_BUILD_SUPPORTED
+          return sse2_copy_upper(dst, src, len);
         #endif
         #endif
             return default_copy_upper(dst, src, len);

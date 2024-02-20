@@ -351,7 +351,6 @@ class build_ext(_build_ext):
             flags = ["-Werror=implicit-function-declaration"]
 
         try:
-            self.mkpath(self.build_temp)
             objects = self.compiler.compile([testfile], extra_postargs=flags)
         except CompileError:
             _eprint("no")
@@ -426,6 +425,11 @@ class build_ext(_build_ext):
         # remove universal compilation flags for OSX
         if PLATFORM_SYSTEM == "Darwin":
             _patch_osx_compiler(self.compiler)
+
+        # check if `PyInterpreterState_GetID` is available
+        if self._check_getid():
+            self.compiler.define_macro("HAS_PYINTERPRETERSTATE_GETID", 1)
+
         # build the extensions as normal
         _build_ext.build_extensions(self)
 
@@ -442,10 +446,6 @@ class build_ext(_build_ext):
                 ext.define_macros.append(("CYTHON_TRACE_NOGIL", 1))
         else:
             ext.define_macros.append(("CYTHON_WITHOUT_ASSERTIONS", 1))
-
-        # check if `PyInterpreterState_GetID` is available
-        if self._check_getid():
-            ext.define_macros.append(("HAS_PYINTERPRETERSTATE_GETID", 1))
 
         # C++ OS-specific options
         if ext.language == "c++":
