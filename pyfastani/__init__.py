@@ -12,7 +12,7 @@ from ._fastani import (
 
 __author__ = "Martin Larralde <martin.larralde@embl.de>"
 __license__ = "MIT"
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 
 __doc__ = _fastani.__doc__
 __all__ = [

@@ -6,7 +6,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyfastani/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/althonos/pyfastani/compare/v0.5.1...HEAD
+
+
+## [v0.5.1] - 2024-02-20
+[v0.5.1]: https://github.com/althonos/pyfastani/compare/v0.5.0...v0.5.1
+
+### Added
+- Pre-compiled wheels for Python 3.12 and PyPy 3.10.
+
+### Fixed
+- Use NEON and SSE2 unconditionally on platforms where they are available by default.
 
 
 ## [v0.5.0] - 2023-07-22
