@@ -264,11 +264,12 @@ jobs:
     if: "!contains(github.ref, 'rc')"
     name: Release
     needs: upload
+    permissions: write-all
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: true
-    - uses: rasmus-saks/release-a-changelog-action@v1.0.1
+    - uses: rasmus-saks/release-a-changelog-action@v1.2.0
       with:
         github-token: '${{ secrets.GITHUB_TOKEN }}'
 
@@ -300,7 +301,7 @@ jobs:
     - name: Generate PKGBUILD
       run: sed -e "s/%pkgver/${{ env.PKGVER }}/g" -e "s/%sha256sum/${{ env.SHA256 }}/g" pkg/aur/PKGBUILD.in > pkg/aur/PKGBUILD
     - name: Update package
-      uses: KSXGitHub/github-actions-deploy-aur@v2.2.5
+      uses: KSXGitHub/github-actions-deploy-aur@v2.7.2
       with:
         pkgname: python-pyfastani
         pkgbuild: pkg/aur/PKGBUILD
@@ -308,4 +309,3 @@ jobs:
         commit_email: ${{ secrets.AUR_EMAIL }}
         ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
         commit_message: ${{ github.event.head_commit.message }}
-        ssh_keyscan_types: rsa,dsa,ecdsa,ed25519
