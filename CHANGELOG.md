@@ -6,7 +6,25 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyfastani/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/althonos/pyfastani/compare/v0.6.0...HEAD
+
+
+## [v0.6.0] - 2024-10-22
+[v0.6.0]: https://github.com/althonos/pyfastani/compare/v0.5.1...v0.6.0
+
+### Changed
+- Rewrite package build using `scikit-build-core`.
+- Update documentation to use the PyData theme.
+- Bump embedded `cpu-features` library to `v0.9.0`.
+
+### Added
+- Support for Python 3.13.
+
+### Fixed
+- Null pointer dereference in FASTA parser deallocation.
+
+### Removed
+- Support for Python 3.6.
 
 
 ## [v0.5.1] - 2024-02-20

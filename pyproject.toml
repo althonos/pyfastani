@@ -1,10 +1,10 @@
 [build-system]
-requires = ["scikit-build-core", "cython >=3.0", "scoring-matrices ~=0.3.0"]
+requires = ["scikit-build-core", "cython >=3.0"]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyfastani"
-version = "0.5.1"
+version = "0.6.0"
 description = "Cython bindings and Python interface to FastANI, a method for fast whole-genome similarity estimation."
 readme = "README.md"
 requires-python = ">=3.7"
