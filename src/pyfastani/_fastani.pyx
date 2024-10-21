@@ -83,8 +83,8 @@ from _utils cimport kseq_ptr_t, toupper, distance
 from _sequtils cimport copy_upper, reverse_complement
 from _atomic_vector cimport atomic_vector
 
-# HACK: Cython defines `PyUnicode_READ` as GIL-holding but it's actually a 
-#       single pointer dereference, so this should be nogil 
+# HACK: Cython defines `PyUnicode_READ` as GIL-holding but it's actually a
+#       single pointer dereference, so this should be nogil
 cdef extern from *:
     Py_UCS4 PyUnicode_READ(int kind, void *data, Py_ssize_t index) noexcept nogil
 
@@ -882,14 +882,14 @@ cdef class Mapper(_Parameterized):
     # --- Methods ------------------------------------------------------------
 
     @staticmethod
-    cdef void _do_l1_mappings(
+    cdef int _do_l1_mappings(
         Map_t& map,
         const int kind,
         const void* data,
         const ssize_t slen,
         QueryMetaData_t[kseq_ptr_t, vector[MinimizerInfo_t]]& query,
         vector[L1_candidateLocus_t]& l1_mappings,
-    ) except * nogil:
+    ) except 1 nogil:
         """Compute L1 mappings for the given sequence block.
 
         Adapted from the `skch::Map::doL1Mapping` in `computeMap.hpp` to avoid
@@ -934,7 +934,7 @@ cdef class Mapper(_Parameterized):
         # early return if no minimizers were found
         query.sketchSize = distance(query.minimizerTableQuery.begin(), uniq_end_iter)
         if query.sketchSize == 0:
-            return
+            return 0
 
         # keep minimizer if it exist in the reference lookup index
         it = query.minimizerTableQuery.begin()
@@ -950,7 +950,9 @@ cdef class Mapper(_Parameterized):
         minimum_hits = estimateMinimumHitsRelaxed(query.sketchSize, map.param.kmerSize, map.param.percentageIdentity)
         map.computeL1CandidateRegions(query, seed_hits_l1, minimum_hits, l1_mappings)
 
-    cpdef void _query_fragment(
+        return 0
+
+    cpdef int _query_fragment(
         self,
         _Map map,
         const int i,
@@ -959,7 +961,7 @@ cdef class Mapper(_Parameterized):
         int kind,
         int stride,
         _FinalMappings final_mappings,
-    ) except *:
+    ) except 1:
         cdef kseq_t                                         kseq
         cdef QueryMetaData_t[kseq_ptr_t, Map_t.MinVec_Type] query
         cdef vector[L1_candidateLocus_t]                    l1_mappings
@@ -997,6 +999,8 @@ cdef class Mapper(_Parameterized):
                 l1_mappings,
                 final_mappings._vec
             )
+
+        return 0
 
     cdef list _query_draft(self, object contigs, int threads=0):
         """Query the sketcher for the given contigs.
