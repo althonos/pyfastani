@@ -1,0 +1,30 @@
+[build-system]
+requires = ["scikit-build-core", "cython >=3.0", "scoring-matrices ~=0.3.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "pyfastani"
+version = "0.5.1"
+
+[tool.scikit-build]
+build-dir = "build/{build_type}"
+editable.rebuild = true
+editable.verbose = false
+
+# [[tool.scikit-build.generate]]
+# path = "src/pyfastani/_version.py"
+# template = '__version__ = "${version}"'
+# location = 'source'
+
+[[tool.scikit-build.overrides]]
+if.state = "editable"
+cmake.build-type = "Debug"
+
+[[tool.scikit-build-overrides]]
+if.env.SCCACHE = true
+cmake.define.CMAKE_C_COMPILER_LAUNCHER = "sccache"
+cmake.define.CMAKE_CXX_COMPILER_LAUNCHER = "sccache"
+
+[[tool.scikit-build-overrides]]
+if.env.MOLD = true
+cmake.define.CMAKE_LINKER_TYPE = "mold"
