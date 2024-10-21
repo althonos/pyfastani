@@ -58,7 +58,9 @@ cdef class Parser:
         self.seq_buffer = <char*> malloc(self.buffer_length * sizeof(char))
 
     def __dealloc__(self):
-        fclose(self.file)
+        if self.file != NULL:
+            fclose(self.file)
+            self.file = NULL
         free(self.seq_buffer)
 
     def __iter__(self):
