@@ -83,20 +83,39 @@ without the need for expensive alignments.
 language, that provides bindings to FastANI. It directly interacts with the
 FastANI internals, which has the following advantages over CLI wrappers:
 
-- **simpler compilation**: FastANI requires several additional libraries,
-  which make compilation of the original binary non-trivial. In PyFastANI,
-  libraries that were needed for threading or I/O are provided as stubs,
-  and `Boost::math` headers are vendored so you can build the package without
-  hassle. Or even better, just install from one of the provided wheels!
-- **single dependency**: If your software or your analysis pipeline is
-  distributed as a Python package, you can add `pyfastani` as a dependency to
-  your project, and stop worrying about the FastANI binary being present on
-  the end-user machine.
-- **sans I/O**: Everything happens in memory, in Python objects you control,
-  making it easier to pass your sequences to FastANI
-  without needing to write them to a temporary file.
-- **multi-threading**: Genome query resolves the fragment mapping step in
-  parallel, leading to shorter querying times even with a single genome.
+.. grid:: 1 2 3 3
+   :gutter: 1
+
+   .. grid-item-card:: :fas:`battery-full` Batteries-included
+
+      Just add ``pyfastani`` as a ``pip`` or ``conda`` dependency, no need
+      for the ``fastani`` binary or any external dependency.
+
+   .. grid-item-card:: :fas:`hammer` Easy compilation
+
+      Required libraries that were needed for threading or I/O are provided 
+      as stubs, and `Boost::math` headers are vendored to build the package 
+      without any system dependency.
+
+   .. grid-item-card:: :fas:`file-circle-xmark` Sans I/O
+
+      Everything happens in memory, making it easier to pass your sequences 
+      to FastANI without needing to write them to a temporary file.
+
+   .. grid-item-card:: :fas:`server` Multi-threaded
+
+      Genome query resolves the fragment mapping step in parallel, leading to 
+      shorter querying times even with a single genome.
+
+   .. grid-item-card:: :fas:`microchip` Portable
+
+      Get SIMD-acceleration on any supported platform without having
+      to build the package from scratch.
+
+   .. grid-item-card:: :fas:`magnifying-glass` Introspectable
+
+      The genome sketches can be accessed from the Python API, allowing
+      to view the minimizers for a genome database.
 
 
 Setup

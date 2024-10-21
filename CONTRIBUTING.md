@@ -21,7 +21,7 @@ Depending on your system, you may have to install them yourself.
 To compile the extension, use the following command:
 
 ```console
-$ python setup.py build_ext
+$ python -m pip install -v -e . --no-build-isolation
 ```
 
 ## Running tests
@@ -31,8 +31,8 @@ the standard library. Running them requires the extension to be built
 locally:
 
 ```console
-$ python setup.py build_ext --debug --inplace
-$ python -m unittest discover -vv
+$ python -m pip install -v -e . --no-build-isolation
+$ python -m unittest pyfastani.tests -vv
 ```
 
 ## Running benchmarks
@@ -43,9 +43,10 @@ The `benches` folder contains benchmarks for evaluating the performance of
 the node connection scoring step, essentially to make sure that the
 multi-threading makes it faster.
 
-Start by building `pyfastani` locally:
+Start by building `pyfastani` locally, and making sure it is compiled
+in release mode:
 ```console
-$ python setup.py build_ext --inplace
+$ python -m pip install -v . --no-build-isolation
 ```
 
 Then make sure you have the required packages and data:
@@ -62,7 +63,7 @@ $ python benches/mapping/plot.py -i times.json --show
 
 ## Coding guidelines
 
-This project targets Python 3.6 or later.
+This project targets Python 3.7 or later.
 
 Python objects should be typed; since it is not supported by Cython,
 you must manually declare types in type stubs (`.pyi` files). In Python
