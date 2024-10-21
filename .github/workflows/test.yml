@@ -33,6 +33,9 @@ jobs:
         - python-version: '3.12'
           python-release: v3.12
           python-impl: CPython
+        - python-version: '3.13'
+          python-release: v3.13
+          python-impl: CPython
         - python-version: pypy-3.7
           python-release: v3.7
           python-impl: PyPy
@@ -47,7 +50,7 @@ jobs:
           python-impl: PyPy
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         submodules: true
     - name: Setup Python ${{ matrix.python-version }}
@@ -94,6 +97,9 @@ jobs:
           python-impl: CPython
         - python-version: '3.12'
           python-release: v3.12
+          python-impl: CPython
+        - python-version: '3.13'
+          python-release: v3.13
           python-impl: CPython
         - python-version: pypy-3.7
           python-release: v3.7
@@ -157,7 +163,7 @@ jobs:
   #         python-impl: PyPy
   #   steps:
   #   - name: Checkout code
-  #     uses: actions/checkout@v2
+  #     uses: actions/checkout@v4
   #     with:
   #       submodules: true
   #   - name: Cache built C files
@@ -192,12 +198,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - python-version: 3.11
-          python-release: v3.11
+        - python-version: 3.13
+          python-release: v3.13
           python-impl: CPython
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         submodules: true
     - name: Setup Python ${{ matrix.python-version }}
