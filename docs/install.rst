@@ -99,22 +99,3 @@ the repository and install the repository by running (with the admin rights):
     Keep in mind this will install always try to install the latest commit,
     which may not even build, so consider using a versioned release instead.
 
-
-GitHub + ``setuptools``
-^^^^^^^^^^^^^^^^^^^^^^^
-
-If you do not want to use ``pip``, you can still clone the repository and
-run the ``setup.py`` file manually, although you will need to install the
-build dependencies (mainly `Cython <https://pypi.org/project/cython>`_):
-
-.. code:: console
-
-   $ git clone --recursive https://github.com/althonos/pyfastani
-   $ cd pyfastani
-   $ python setup.py build_ext
-   # python setup.py install
-
-.. Danger::
-
-    Installing packages without ``pip`` is strongly discouraged, as they can
-    only be uninstalled manually, and may damage your system.
