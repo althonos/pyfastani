@@ -36,26 +36,26 @@ extern "C" {
 
     void copy_upper(char* dst, const char* src, size_t len) {
         #ifdef __arm__
-        #ifdef NEON_BUILD_SUPPORTED
+        #ifdef NEON_BUILD_SUPPORT
           if (features.neon)
             return neon_copy_upper(dst, src, len);
           else
         #endif
         #endif
         #ifdef __aarch64__
-        #ifdef NEON_BUILD_SUPPORTED
+        #ifdef NEON_BUILD_SUPPORT
           return neon_copy_upper(dst, src, len);
         #endif
         #endif
         #ifdef __x86__
-        #ifdef SSE2_BUILD_SUPPORTED
+        #ifdef SSE2_BUILD_SUPPORT
           if (features.sse2)
             return sse2_copy_upper(dst, src, len);
           else
         #endif
         #endif
         #ifdef __x86_64__
-        #ifdef SSE2_BUILD_SUPPORTED
+        #ifdef SSE2_BUILD_SUPPORT
           return sse2_copy_upper(dst, src, len);
         #endif
         #endif
@@ -80,7 +80,7 @@ extern "C" {
 
     void reverse_complement(char* dst, const char* src, size_t len) {
         #if defined(__x86__) || defined(__x86_64__)
-        #ifdef SSSE3_BUILD_SUPPORTED
+        #ifdef SSSE3_BUILD_SUPPORT
           if (features.ssse3)
             return ssse3_reverse_complement(dst, src, len); // fast reverse complement.
           else
