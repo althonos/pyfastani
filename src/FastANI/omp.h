@@ -8,6 +8,7 @@ extern "C" {
 
 extern int omp_get_thread_num(void);
 extern int omp_get_num_threads(void);
+extern void omp_set_num_threads(int);
 
 #ifdef __cplusplus
 }

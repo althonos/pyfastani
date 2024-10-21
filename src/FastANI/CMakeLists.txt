@@ -33,7 +33,8 @@ foreach(_header ${FASTANI_HEADERS})
     set(FASTANI_GENERATED_HEADERS ${FASTANI_GENERATED_HEADERS} ${CMAKE_CURRENT_BINARY_DIR}/include/${_header})
 endforeach()
 
-add_library(fastani src/cgi/core_genome_identity.cpp ${FASTANI_GENERATED_HEADERS})
+file(COPY omp.h DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/include/src)
+add_library(fastani src/cgi/core_genome_identity.cpp omp.cpp ${FASTANI_GENERATED_HEADERS})
 target_compile_definitions(fastani PUBLIC USE_BOOST=1 BOOST_NO_EXCEPTIONS=1)
 target_include_directories(fastani PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/include/src)
 
