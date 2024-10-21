@@ -5,16 +5,52 @@ build-backend = "scikit_build_core.build"
 [project]
 name = "pyfastani"
 version = "0.5.1"
+description = "Cython bindings and Python interface to FastANI, a method for fast whole-genome similarity estimation."
+readme = "README.md"
+requires-python = ">=3.7"
+license = { file = "COPYING" }
+authors = [
+  { name = "Martin Larralde", email = "martin.larralde@embl.de" },
+]
+keywords = ["bioinformatics", "genomics", "average", "nucleotide", "identity"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: C++",
+    "Programming Language :: Cython",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Typing :: Typed",
+]
+[project.urls]
+"Documentation" = "https://pyfastani.readthedocs.io/en/stable/"
+"Bug Tracker" = "https://github.com/althonos/pyfastani/issues"
+"Changelog" = "https://github.com/althonos/pyfastani/blob/main/CHANGELOG.md"
+"Coverage" = "https://codecov.io/gh/althonos/pyfastani/"
+"Builds" = "https://github.com/althonos/pyfastani/actions"
+"PyPI" = "https://pypi.org/project/pyfastani"
 
 [tool.scikit-build]
 build-dir = "build/{build_type}"
 editable.rebuild = true
 editable.verbose = false
 
-# [[tool.scikit-build.generate]]
-# path = "src/pyfastani/_version.py"
-# template = '__version__ = "${version}"'
-# location = 'source'
+[[tool.scikit-build.generate]]
+path = "src/pyfastani/_version.py"
+template = '__version__ = "${version}"'
+location = 'source'
 
 [[tool.scikit-build.overrides]]
 if.state = "editable"
@@ -28,3 +64,44 @@ cmake.define.CMAKE_CXX_COMPILER_LAUNCHER = "sccache"
 [[tool.scikit-build-overrides]]
 if.env.MOLD = true
 cmake.define.CMAKE_LINKER_TYPE = "mold"
+
+
+[tool.coverage.run]
+plugins = ["Cython.Coverage"]
+
+[tool.coverage.report]
+include = ["src/pytantan/*"]
+omit = ["src/pyfastani/tests/*"]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if typing.TYPE_CHECKING:",
+    "@abc.abstractmethod",
+    "@abc.abstractproperty",
+    "raise NotImplementedError",
+    "return NotImplemented",
+    "raise UnexpectedError",
+    "raise AllocationError",
+]
+
+[tool.coverage.paths]
+source = [
+    "src/pyfastani/",
+    "build/Debug/src/pyfastani/",
+    "build/Release/src/pyfastani/",
+]
+
+[tool.mypy]
+disallow_any_decorated = true
+disallow_any_generics = true
+disallow_any_unimported = false
+disallow_subclassing_any = false
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_return_any = true
+exclude = ["tests/.*\\.py"]
+
+["tool.mypy-pyfastani.tests.*"]
+ignore_errors = true
