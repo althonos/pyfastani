@@ -13,7 +13,6 @@ jobs:
     strategy:
       matrix:
         python-tag:
-        - cp36-manylinux_aarch64
         - cp37-manylinux_aarch64
         - cp38-manylinux_aarch64
         - cp39-manylinux_aarch64
@@ -55,7 +54,6 @@ jobs:
     strategy:
       matrix:
         python-tag:
-        - cp36-manylinux_x86_64
         - cp37-manylinux_x86_64
         - cp38-manylinux_x86_64
         - cp39-manylinux_x86_64
@@ -92,7 +90,6 @@ jobs:
     strategy:
       matrix:
         python-tag:
-        - cp36-macosx_x86_64
         - cp37-macosx_x86_64
         - cp38-macosx_x86_64
         - cp39-macosx_x86_64
@@ -162,7 +159,6 @@ jobs:
   #   strategy:
   #     matrix:
   #       python-tag:
-  #       - cp36-win_amd64
   #       - cp37-win_amd64
   #       - cp38-win_amd64
   #       - cp39-win_amd64
@@ -209,7 +205,7 @@ jobs:
     - name: Install build requirements
       run: python -m pip install -r .github/workflows/requirements.txt
     - name: Build source distribution
-      run: python setup.py sdist
+      run: python -m build -s .
     - name: Store built source distribution
       uses: actions/upload-artifact@v2
       with:
@@ -295,7 +291,7 @@ jobs:
           name: wheels
           path: dist
     - name: Extract package version
-      run: echo PKGVER=$(python setup.py --version) >> $GITHUB_ENV
+      run: echo PKGVER=$(echo ${{ github.ref }} | cut -dv -f2) >> $GITHUB_ENV
     - name: Compute SHA256 of source distribution
       run: echo SHA256=$(sha256sum dist/pyfastani-${{ env.PKGVER }}.tar.gz | cut -f1 -d' ') >> $GITHUB_ENV
     - name: Generate PKGBUILD
