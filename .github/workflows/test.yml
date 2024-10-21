@@ -64,7 +64,7 @@ jobs:
       run: python -m pip install --prefer-binary numpy
       if: ${{ !startsWith(matrix.python-version, 'pypy') }}
     - name: Install tests requirements
-      run: python -m pip install --prefer-binary -r pyfastani/tests/requirements.txt
+      run: python -m pip install --prefer-binary -r src/pyfastani/tests/requirements.txt
     - name: Test package
       run: python -m unittest discover -vv
 
@@ -128,7 +128,7 @@ jobs:
       if: ${{ !startsWith(matrix.python-version, 'pypy') }}
       run: python -m pip install --prefer-binary numpy
     - name: Install tests requirements
-      run: python -m pip install --prefer-binary -r pyfastani/tests/requirements.txt
+      run: python -m pip install --prefer-binary -r src/pyfastani/tests/requirements.txt
     - name: Test package
       run: python -m unittest discover -vv
 
@@ -178,7 +178,7 @@ jobs:
   #   - name: Build C extension
   #     run: python setup.py build_ext --inplace
   #   - name: Install tests requirements
-  #     run: python -m pip install -r pyfastani/tests/requirements.txt
+  #     run: python -m pip install -r src/pyfastani/tests/requirements.txt
   #   - name: Test package
   #     run: python -m unittest discover -vv
 
@@ -211,7 +211,7 @@ jobs:
     - name: Install numpy
       run: python -m pip install --prefer-binary numpy
     - name: Install tests requirements
-      run: python -m pip install --prefer-binary -r pyfastani/tests/requirements.txt
+      run: python -m pip install --prefer-binary -r src/pyfastani/tests/requirements.txt
     - name: Test with coverage
       run: python -m coverage run -m unittest discover -vv
     - name: Upload to Codecov
