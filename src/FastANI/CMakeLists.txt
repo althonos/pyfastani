@@ -1,15 +1,9 @@
 set(
-    FASTANI_SOURCES
-    src/cgi/core_genome_identity.cpp
-)
-
-set(
     FASTANI_HEADERS
     src/cgi/include/cgid_types.hpp
     src/cgi/include/computeCoreIdentity.hpp
     src/common/clipp.h
     src/common/kseq.h
-    # src/common/memcpyLink.h
     src/common/murmur3.h
     src/common/prettyprint.hpp
     src/map/include/base_types.hpp
@@ -22,8 +16,6 @@ set(
     src/map/include/slidingMap.hpp
     src/map/include/winSketch.hpp
 )
-
-set(FASTANI_GENERATED_HEADERS)
 foreach(_header ${FASTANI_HEADERS})
     if(_header STREQUAL "src/common/clipp.h")
         file(COPY ${_header} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/include/src/common)
@@ -41,6 +33,14 @@ foreach(_header ${FASTANI_HEADERS})
     set(FASTANI_GENERATED_HEADERS ${FASTANI_GENERATED_HEADERS} ${CMAKE_CURRENT_BINARY_DIR}/include/${_header})
 endforeach()
 
-add_library(fastani ${FASTANI_SOURCES} ${FASTANI_GENERATED_HEADERS})
-target_compile_definitions(fastani PUBLIC USE_BOOST=1 BOOST_NO_EXCEPTIONS=1 BOOST_IF_CONSTEXPR="if")
+add_library(fastani src/cgi/core_genome_identity.cpp ${FASTANI_GENERATED_HEADERS})
+target_compile_definitions(fastani PUBLIC USE_BOOST=1 BOOST_NO_EXCEPTIONS=1)
 target_include_directories(fastani PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/include/src)
+
+if(Boost_FOUND)
+    target_include_directories(fastani PUBLIC ${Boost_INCLUDE_DIRS})
+    target_link_libraries(fastani PUBLIC ${Boost_LIBRARIES})
+    target_link_directories(fastani PUBLIC ${Boost_LIBRARY_DIRS})
+else()
+    target_link_libraries(fastani PUBLIC boost_math)
+endif()
