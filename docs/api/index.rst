@@ -6,9 +6,9 @@ API Reference
 .. toctree::
    :hidden:
 
-   sketch <ani>
-   miscellaneous <misc>
-   minimizer <minimizer>
+   Sketch <ani>
+   Minimizers <minimizer>
+   Miscellaneous <misc>
 
 
 .. only:: html
