@@ -46,6 +46,15 @@ classifiers = [
 build-dir = "build/{build_type}"
 editable.rebuild = true
 editable.verbose = false
+sdist.exclude = [
+    ".github", 
+    "data", 
+    "vendor/boost-math/test", 
+    "vendor/boost-math/doc",
+    "vendor/boost-math/reporting",
+    "vendor/boost-math/example",
+    "vendor/FastANI/data",
+]
 
 [[tool.scikit-build.generate]]
 path = "src/pyfastani/_version.py"
