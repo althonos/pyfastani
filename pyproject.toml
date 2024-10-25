@@ -79,6 +79,7 @@ free-threaded-support = false
 before-build = "pip install scikit-build-core cython"
 build-frontend = { name = "pip", args = ["--no-build-isolation"] }
 build-verbosity = 1
+test-command = "python -m unittest pyfastani.tests -v"
 
 [tool.coverage.run]
 plugins = ["Cython.Coverage"]
