@@ -46,7 +46,7 @@ plt.subplot(1, 2, 1)
 data["results"].sort(key=lambda r: (r["threads"], r["nucleotides"]))
 for color, (threads, group) in zip(
     itertools.cycle(Prism_10.hex_colors),
-    itertools.groupby(data["results"], key=lambda r: r["threads"])
+    filter(lambda x: x[0] % 2 == 0, itertools.groupby(data["results"], key=lambda r: r["threads"])),
 ):
     group = list(group)
     X = numpy.array([r["nucleotides"] / 1e6 for r in group])

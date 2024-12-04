@@ -27,9 +27,9 @@ SAMPLES = [
     "1189612.SAMN02469969",
     "518637.SAMN00008825",
     "585506.SAMN00139194",
-    "82977.SAMN02928654",
+    "82977.SAMEA4412672",
     "1267533.SAMN02440487",
-    "373.SAMN04223557",
+    "373.SAMN11512331",
     "298701.SAMN02471586",
     "1852381.SAMEA4555866",
     "1341181.SAMN02470908",
@@ -43,8 +43,8 @@ SAMPLES = [
     "1909395.SAMN05912833",
     "448385.SAMEA3138271",
     "1343740.SAMN02604192",
-    "48.SAMN03704078",
-    "1391654.SAMN03951129",
+    "83451.SAMN17765430",
+    "2792470.SAMN16878660",
     "1912.SAMN05935554",
     "576784.SAMEA2519540",
     "749414.SAMN02603683",
@@ -61,10 +61,13 @@ SAMPLES = [
 ]
 
 data_folder = os.path.dirname(os.path.realpath(__file__))
-for sample in rich.progress.track(SAMPLES, description="Downloading..."):
-    tax_id = sample.split(".")[0]
-    url = "https://progenomes.embl.de/dumpSequence.cgi?p={}&t=c&a={}".format(sample, tax_id)
-    with urllib.request.urlopen(url) as res:
-        with gzip.open(res) as src:
-            with open(os.path.join(data_folder, "{}.fna".format(sample)), "wb") as dst:
-                shutil.copyfileobj(src, dst)
+with rich.progress.Progress() as progress:
+    task = progress.add_task(total=len(SAMPLES), description="Downloading...")
+    for sample in progress.track(SAMPLES, task_id=task):
+        tax_id = sample.split(".")[0]
+        progress.update(description=sample, task_id=task)
+        url = "https://progenomes.embl.de/dumpSequence.cgi?p={}&t=c&a={}".format(sample, tax_id)
+        with urllib.request.urlopen(url) as res:
+            with gzip.open(res) as src:
+                with open(os.path.join(data_folder, "{}.fna".format(sample)), "wb") as dst:
+                    shutil.copyfileobj(src, dst)
