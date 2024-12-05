@@ -13,6 +13,7 @@ import re
 import semantic_version
 import shutil
 import sys
+import urllib.request
 
 # -- Path setup --------------------------------------------------------------
 
@@ -22,6 +23,12 @@ import sys
 
 docssrc_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.dirname(docssrc_dir)
+
+# Download the *See Also* cards from a centralized location so it can be kept
+# up-to-date across all projects
+with urllib.request.urlopen("https://gist.githubusercontent.com/althonos/5d6bf5a512d64dc951c42a91d5fc3fb3/raw/related.rst") as src:
+    with open("related.rst", "wb") as dst:
+        shutil.copyfileobj(src, dst)
 
 # -- Project information -----------------------------------------------------
 
