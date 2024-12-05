@@ -8,16 +8,13 @@ jobs:
 
   test_linux:
     name: Test (Linux)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     env:
       OS: Linux
     strategy:
       fail-fast: false
       matrix:
         include:
-        - python-version: 3.7
-          python-release: v3.7
-          python-impl: CPython
         - python-version: 3.8
           python-release: v3.8
           python-impl: CPython
@@ -36,9 +33,6 @@ jobs:
         - python-version: '3.13'
           python-release: v3.13
           python-impl: CPython
-        - python-version: pypy-3.7
-          python-release: v3.7
-          python-impl: PyPy
         - python-version: pypy-3.8
           python-release: v3.8
           python-impl: PyPy
@@ -73,16 +67,13 @@ jobs:
 
   test_osx:
     name: Test (OSX)
-    runs-on: macos-12
+    runs-on: macos-latest
     env:
       OS: OSX
     strategy:
       fail-fast: false
       matrix:
         include:
-        - python-version: 3.7
-          python-release: v3.7
-          python-impl: CPython
         - python-version: 3.8
           python-release: v3.8
           python-impl: CPython
@@ -101,9 +92,6 @@ jobs:
         - python-version: '3.13'
           python-release: v3.13
           python-impl: CPython
-        - python-version: pypy-3.7
-          python-release: v3.7
-          python-impl: PyPy
         - python-version: pypy-3.8
           python-release: v3.8
           python-impl: PyPy
@@ -146,21 +134,12 @@ jobs:
   #   strategy:
   #     matrix:
   #       include:
-  #       - python-version: 3.7
-  #         python-release: v3.7
-  #         python-impl: CPython
   #       - python-version: 3.8
   #         python-release: v3.8
   #         python-impl: CPython
   #       - python-version: 3.9
   #         python-release: v3.9
   #         python-impl: CPython
-  #       - python-version: pypy-3.6
-  #         python-release: v3.6
-  #         python-impl: PyPy
-  #       - python-version: pypy-3.7
-  #         python-release: v3.7
-  #         python-impl: PyPy
   #   steps:
   #   - name: Checkout code
   #     uses: actions/checkout@v4
