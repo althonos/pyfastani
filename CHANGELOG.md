@@ -6,7 +6,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyfastani/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/althonos/pyfastani/compare/v0.6.1...HEAD
+
+
+## [v0.6.1] - 2024-01-12
+[v0.6.1]: https://github.com/althonos/pyfastani/compare/v0.6.0...v0.6.1
+
+### Fixed
+- Deployment to AUR from GitHub Actions.
+- Incorrect compile actions in CMake files causing compilation failures with older CMake versions.
+
+### Changed
+- Reduce source distribution size by excluding unneeded vendored files.
 
 
 ## [v0.6.0] - 2024-10-22

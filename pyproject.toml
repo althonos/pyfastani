@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyfastani"
-version = "0.6.0"
+version = "0.6.1"
 description = "Cython bindings and Python interface to FastANI, a method for fast whole-genome similarity estimation."
 readme = "README.md"
 requires-python = ">=3.7"
@@ -41,6 +41,7 @@ classifiers = [
 "Coverage" = "https://codecov.io/gh/althonos/pyfastani/"
 "Builds" = "https://github.com/althonos/pyfastani/actions"
 "PyPI" = "https://pypi.org/project/pyfastani"
+"PiWheels" = "https://www.piwheels.org/project/pyfastani/"
 
 [tool.scikit-build]
 build-dir = "build/{build_type}"
@@ -48,12 +49,14 @@ editable.rebuild = true
 editable.verbose = false
 sdist.exclude = [
     ".github", 
-    "data", 
+    "benches/data",
     "vendor/boost-math/test", 
     "vendor/boost-math/doc",
     "vendor/boost-math/reporting",
     "vendor/boost-math/example",
     "vendor/FastANI/data",
+    "src/pyfastani/tests/data/Shigella_flexneri_2a_01.fna",
+    "src/pyfastani/tests/data/Escherichia_coli_str_K12_MG1655.fna",
 ]
 
 [[tool.scikit-build.generate]]
