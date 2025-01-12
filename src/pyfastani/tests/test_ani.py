@@ -132,6 +132,7 @@ class TestANIBytes(_TestANI, unittest.TestCase):
     def _get_sequence(self, record):
         return record.seq
 
+    @unittest.skipUnless(os.path.exists(ECOLI), "missing FastANI data files")
     def test_sketch_pickling(self):
         """Check that pickling before indexing produces consistent results.
         """
@@ -151,6 +152,7 @@ class TestANIBytes(_TestANI, unittest.TestCase):
         self.assertEqual(hits[0].fragments, 1608)
         self.assertAlmostEqual(hits[0].identity, 97.7507, places=4)
 
+    @unittest.skipUnless(os.path.exists(ECOLI), "missing FastANI data files")
     def test_mapper_pickling(self):
         """Check that pickling after indexing produces consistent results.
         """
