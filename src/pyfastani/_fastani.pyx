@@ -105,6 +105,7 @@ cdef extern from *:
     const size_t _MAX_KMER_SIZE
 
 MAX_KMER_SIZE = _MAX_KMER_SIZE
+__version__ = PROJECT_VERSION
 
 # --- Patch for PyPy 3.9 -----------------------------------------------------
 
