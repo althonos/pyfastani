@@ -155,12 +155,17 @@ For clarity, only 5 randomly-selected genomes are shown on the second graph. Eac
 
 ## 🔖 Citation
 
-PyFastANI is scientific software; it was presented among other optimized
-software at the [European Student Council Symposium (ESCS) 2022](https://www.escs2022.iscbsc.org/) during [ECCB 2022](https://eccb2022.org/). Please
-cite both [PyFastANI](https://doi.org/10.7490/f1000research.1119176.1) and [FastANI](https://www.nature.com/articles/s41467-018-07641-9) if you are using it in an academic work,
+<!-- PyFastANI is scientific software; it was presented among other optimized
+software at the [European Student Council Symposium (ESCS) 2022](https://www.escs2022.iscbsc.org/) during [ECCB 2022](https://eccb2022.org/). -->
+
+PyFastANI is scientific software; it is submitted for publication
+and is currently available as a [pre-print on bioRxiv](https://www.biorxiv.org/content/10.1101/2025.02.13.638148v1).
+Please cite both [PyFastANI](https://www.biorxiv.org/content/10.1101/2025.02.13.638148v1) 
+and [FastANI](https://www.nature.com/articles/s41467-018-07641-9) if you are using it in an academic work,
 for instance as:
 
-> PyFastANI (Larralde, 2022), a Python library with optimized bindings to FastANI (Jain *et al.*, 2018).
+> PyFastANI (Larralde *et al.*, 2024), a Python library with optimized bindings to FastANI (Jain *et al.*, 2018).
+
 
 ## 🔎 See Also
 
