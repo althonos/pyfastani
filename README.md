@@ -159,14 +159,13 @@ For clarity, only 5 randomly-selected genomes are shown on the second graph. Eac
 <!-- PyFastANI is scientific software; it was presented among other optimized
 software at the [European Student Council Symposium (ESCS) 2022](https://www.escs2022.iscbsc.org/) during [ECCB 2022](https://eccb2022.org/). -->
 
-PyFastANI is scientific software; it is submitted for publication
-and is currently available as a [pre-print on bioRxiv](https://www.biorxiv.org/content/10.1101/2025.02.13.638148v1).
-Please cite both [PyFastANI](https://www.biorxiv.org/content/10.1101/2025.02.13.638148v1) 
-and [FastANI](https://www.nature.com/articles/s41467-018-07641-9) if you are using it in an academic work,
-for instance as:
+If you found PyFastANI useful, please cite [our paper](https://academic.oup.com/nargab/article/7/3/lqaf095/8196481), as well as the original [FastANI paper](https://www.nature.com/articles/s41467-018-07641-9).
 
-> PyFastANI (Larralde *et al.*, 2024), a Python library with optimized bindings to FastANI (Jain *et al.*, 2018).
+To cite PyFastANI:
+> Martin Larralde, Georg Zeller, Laura M. Carroll. 2025. PyOrthoANI, PyFastANI, and Pyskani: a suite of Python libraries for computation of average nucleotide identity. *NAR Genomics and Bioinformatics* 7(3):lqaf095. doi: 10.1093/nargab/lqaf095.
 
+To cite FastANI:
+> Chirag Jain, Luis M Rodriguez-R, Adam M Phillippy, Konstantinos T Konstantinidis, Srinivas Aluru. 2018. High throughput ANI analysis of 90K prokaryotic genomes reveals clear species boundaries. *Nature Communications* 9(1):5114. doi: 10.1038/s41467-018-07641-9.
 
 ## 🔎 See Also
 
