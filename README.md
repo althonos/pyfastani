@@ -24,7 +24,7 @@
 ## 🗺️ Overview
 
 FastANI is a method published in 2018 by [Chirag Jain](https://github.com/cjain7)
-*et al.* for high-throughput computation of whole-genome
+*et al.*[\[1\]](#ref1) for high-throughput computation of whole-genome
 [Average Nucleotide Identity (ANI)](https://img.jgi.doe.gov/docs/ANI.pdf).
 It uses [MashMap](https://github.com/marbl/MashMap) to compute orthologous mappings
 without the need for expensive alignments.
@@ -212,3 +212,7 @@ by the [original FastANI authors](https://github.com/cjain7). It was developed b
 [Martin Larralde](https://github.com/althonos/) during his PhD project
 at the [European Molecular Biology Laboratory](https://www.embl.de/) in
 the [Zeller team](https://github.com/zellerlab).*
+
+## 📚 References
+
+- <a id="ref1">\[1\]</a> [Jain, C., Rodriguez-R, L.M., Phillippy, A.M. *et al.* High throughput ANI analysis of 90K prokaryotic genomes reveals clear species boundaries. *Nat Commun* 9, 5114 (2018). doi:10.1038/s41467-018-07641-9](https://doi.org/10.1038/s41467-018-07641-9).
