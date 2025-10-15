@@ -102,7 +102,7 @@ mapper = sketch.index()
 
 # read the query and query the mapper
 query = Bio.SeqIO.read("vendor/FastANI/data/Escherichia_coli_str_K12_MG1655.fna", "fasta")
-hits = mapper.query_sequence(bytes(query.seq))
+hits = mapper.query_genome(bytes(query.seq))
 
 for hit in hits:
     print("E. coli K12 MG1655", hit.name, hit.identity, hit.matches, hit.fragments)
