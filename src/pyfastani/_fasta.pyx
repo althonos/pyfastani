@@ -1,5 +1,5 @@
 # coding: utf-8
-# cython: language_level=3, linetrace=True, language=cpp, binding=False
+# cython: language_level=3, language=cpp, binding=False
 
 # --- C imports --------------------------------------------------------------
 
