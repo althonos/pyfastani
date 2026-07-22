@@ -1,4 +1,4 @@
-find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
+find_package(Python COMPONENTS Interpreter Development.Module ${SKBUILD_SABI_COMPONENT} REQUIRED)
 get_property(PYTHON_EXTENSIONS_SOURCE_DIR GLOBAL PROPERTY PYTHON_EXTENSIONS_SOURCE_DIR)
 
 # --- Detect PyInterpreterState_GetID ------------------------------------------
@@ -6,9 +6,16 @@ get_property(PYTHON_EXTENSIONS_SOURCE_DIR GLOBAL PROPERTY PYTHON_EXTENSIONS_SOUR
 include(CheckSymbolExists)
 
 set(SAFE_CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES}")
+set(SAFE_CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES}")
+set(SAFE_CMAKE_REQUIRED_LINK_DIRECTORIES "${CMAKE_REQUIRED_LINK_DIRECTORIES}")
 set(CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES} ${Python_INCLUDE_DIRS})
+set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} ${Python_LIBRARIES})
+set(CMAKE_REQUIRED_LINK_DIRECTORIES ${CMAKE_REQUIRED_LINK_DIRECTORIES} ${Python_LIBRARY_DIRS})
 check_symbol_exists(PyInterpreterState_GetID "stdint.h;stdlib.h;Python.h" HAVE_PYINTERPRETERSTATE_GETID)
 set(CMAKE_REQUIRED_INCLUDES "${SAFE_CMAKE_REQUIRED_INCLUDES}")
+set(CMAKE_REQUIRED_LIBRARIES "${SAFE_CMAKE_REQUIRED_LIBRARIES}")
+set(CMAKE_REQUIRED_LINK_DIRECTORIES "${SAFE_CMAKE_REQUIRED_LINK_DIRECTORIES}")
+set(PYSTATE_PATCH_H ${CMAKE_CURRENT_LIST_DIR}/pystate_patch.h)
 
 # --- Detect implementation ----------------------------------------------------
 
@@ -112,7 +119,13 @@ macro(cython_extension _name)
   if(CYTHON_EXTENSION_SOURCES)
     set(EXTENSION_SOURCES ${EXTENSION_SOURCES} ${CYTHON_EXTENSION_SOURCES})
   endif()
-  python_add_library(${_target} MODULE WITH_SOABI ${EXTENSION_SOURCES})
+  if((NOT "${SKBUILD_SABI_VERSION}" STREQUAL "") AND (NOT CMAKE_BUILD_TYPE STREQUAL Debug))
+    message(STATUS "Building in Limited API mode for Python: ${SKBUILD_SABI_VERSION}")
+    python_add_library(${_target} MODULE WITH_SOABI USE_SABI "${SKBUILD_SABI_VERSION}" ${EXTENSION_SOURCES})
+  else()
+    message(STATUS "Building in latest API mode for Python: ${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}")
+    python_add_library(${_target} MODULE WITH_SOABI ${EXTENSION_SOURCES})
+  endif()
   set_target_properties(${_target} PROPERTIES OUTPUT_NAME ${_name})
   set_target_properties(${_target} PROPERTIES CXX_STANDARD 17)
   target_include_directories(${_target} AFTER PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})  
