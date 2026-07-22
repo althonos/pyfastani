@@ -6,7 +6,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyfastani/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/althonos/pyfastani/compare/v0.6.2..HEAD
+
+
+## [v0.6.2] - 2026-07-22
+[v0.6.2]: https://github.com/althonos/pyfastani/compare/v0.6.1...v0.6.2
+
+### Fixed
+- Erroneous computation of query genome length causing no hits to be reported for very highly fragmented genomes.
+
+### Changed
+- Distribute stable ABI wheels with Python 3.11 Limited API.
 
 
 ## [v0.6.1] - 2024-01-12

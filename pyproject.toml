@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyfastani"
-version = "0.6.1"
+version = "0.6.2"
 description = "Cython bindings and Python interface to FastANI, a method for fast whole-genome similarity estimation."
 readme = "README.md"
 requires-python = ">=3.7"
@@ -28,6 +28,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
@@ -77,6 +78,10 @@ cmake.define.CMAKE_CXX_COMPILER_LAUNCHER = "sccache"
 [[tool.scikit-build-overrides]]
 if.env.MOLD = true
 cmake.define.CMAKE_LINKER_TYPE = "mold"
+
+[[tool.scikit-build.overrides]]
+if.env.READTHEDOCS = "True"
+cmake.build-type = "Debug"
 
 [tool.cibuildwheel]
 build-verbosity = 1
