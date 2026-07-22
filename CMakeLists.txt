@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION} LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 11)
 set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -23,6 +22,14 @@ set(Boost_USE_MULTITHREADED      ON)
 set(BOOST_MATH_STANDALONE        ON)
 
 find_package(Boost 1.45 COMPONENTS math_c99)
+
+if(Boost_VERSION_MAJOR GREATER_EQUAL 1 AND Boost_VERSION_MINOR GREATER_EQUAL 82)
+  message(STATUS "Using C++ 14 required by Boost 1.82 and higher")
+  set(CMAKE_CXX_STANDARD 14)
+else()
+  message(STATUS "Using C++ 11")
+  set(CMAKE_CXX_STANDARD 11)
+endif()
 
 # --- Setup include folders ----------------------------------------------------
 
