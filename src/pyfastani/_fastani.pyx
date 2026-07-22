@@ -1102,7 +1102,7 @@ cdef class Mapper(_Parameterized):
                 )
                 # record the number of fragments
                 total_fragments += fragment_count
-                total_length += slen
+                total_length += fragment_count * self._param.minReadLength
 
         # compute core genomic identity after successful mapping
         with nogil:
