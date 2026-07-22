@@ -5,7 +5,7 @@
 
 from cpython cimport PyObject
 from cpython.bytes cimport PyBytes_FromStringAndSize
-from cpython.unicode cimport PyUnicode_1BYTE_KIND, PyUnicode_FromKindAndData
+from cpython.unicode cimport PyUnicode_FromStringAndSize
 
 from libc.stdlib cimport malloc, realloc, free
 from libc.stdio cimport FILE, fopen, fgets, fclose
@@ -80,7 +80,7 @@ cdef class Parser:
         line_length = strlen(<char*> &self.line)
         if self.line[line_length - 1] != b"\n":
             raise BufferError("FASTA identifier too large for the line buffer")
-        id = PyUnicode_FromKindAndData(PyUnicode_1BYTE_KIND, <void*> &self.line[1], line_length - 2)
+        id = PyUnicode_FromStringAndSize(&self.line[1], line_length - 2)
 
         with nogil:
             while fgets(<char*> &self.line, sizeof(self.line), self.file) != NULL:

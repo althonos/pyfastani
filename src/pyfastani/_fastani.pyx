@@ -15,22 +15,12 @@ References:
 cimport cython
 cimport cython.parallel
 cimport libcpp11.chrono
-from cpython.buffer cimport Py_buffer, PyBUF_READ
+from cpython.buffer cimport Py_buffer, PyObject_GetBuffer, PyBuffer_Release, PyBUF_READ
 from cython.operator cimport dereference, preincrement, postincrement
 from cpython.ref cimport Py_INCREF
 from cpython.list cimport PyList_New, PyList_SET_ITEM
 from cpython.memoryview cimport PyMemoryView_FromMemory, PyMemoryView_Check, PyMemoryView_GET_BUFFER
-from cpython.unicode cimport (
-    Py_UCS1,
-    Py_UCS2,
-    PyUnicode_DATA,
-    PyUnicode_KIND,
-    PyUnicode_GET_LENGTH,
-    PyUnicode_1BYTE_KIND,
-    PyUnicode_2BYTE_KIND,
-    PyUnicode_4BYTE_KIND,
-    PyUnicode_FromKindAndData,
-)
+from cpython.unicode cimport PyUnicode_AsUTF8AndSize
 
 from libc.stdio cimport printf
 from libc.string cimport memcpy
@@ -83,10 +73,6 @@ from _utils cimport kseq_ptr_t, toupper, distance
 from _sequtils cimport copy_upper, reverse_complement
 from _atomic_vector cimport atomic_vector
 
-# HACK: Cython defines `PyUnicode_READ` as GIL-holding but it's actually a
-#       single pointer dereference, so this should be nogil
-cdef extern from *:
-    Py_UCS4 PyUnicode_READ(int kind, void *data, Py_ssize_t index) noexcept nogil
 
 # --- Python imports ---------------------------------------------------------
 
@@ -114,7 +100,6 @@ include "_patch.pxi"
 # --- Cython helpers ---------------------------------------------------------
 
 cdef ssize_t _read_nucl(
-    const int kind,
     const void* data,
     const ssize_t slen,
     const ssize_t i,
@@ -138,14 +123,9 @@ cdef ssize_t _read_nucl(
         length = slen - i
     else:
         length = 0
-
-    # if UCS-1, bytes are next to each other, so we can use the SIMD
-    # implementations to copy into uppercase
-    if kind == PyUnicode_1BYTE_KIND:
-        copy_upper(&fwd[_MAX_KMER_SIZE], &(<char*> data)[i], length)
-    else:
-        for j in range(length):
-            fwd[_MAX_KMER_SIZE + j] = toupper(<int> PyUnicode_READ(kind, data, i + j))
+    
+    # copy directly
+    copy_upper(&fwd[_MAX_KMER_SIZE], &(<char*> data)[i], length)
 
     # reverse complement in backward buffer
     reverse_complement(&bwd[_MAX_KMER_SIZE - length], &fwd[_MAX_KMER_SIZE], length)
@@ -155,7 +135,6 @@ cdef ssize_t _read_nucl(
 
 cdef int _add_minimizers_nucl(
     vector[MinimizerInfo_t] &minimizer_index,
-    const int kind,
     const void* data,
     const ssize_t slen,
     const int kmer_size,
@@ -184,7 +163,7 @@ cdef int _add_minimizers_nucl(
     # initial fill of the buffer for the sequence sliding window
     # supporting any unicode sequence in canonical form (including
     # byte buffers containing ASCII characters)
-    _read_nucl(kind, data, slen, 0, fwd, bwd)
+    _read_nucl(data, slen, 0, fwd, bwd)
 
     # process all windows of width `kmer_size` in the input sequence
     for i in range(slen - kmer_size + 1):
@@ -193,7 +172,7 @@ cdef int _add_minimizers_nucl(
         if i % _MAX_KMER_SIZE == 0:
             memcpy(&fwd[0], &fwd[_MAX_KMER_SIZE], _MAX_KMER_SIZE)
             memcpy(&bwd[_MAX_KMER_SIZE], &bwd[0], _MAX_KMER_SIZE)
-            _read_nucl(kind, data, slen, i + _MAX_KMER_SIZE, fwd, bwd)
+            _read_nucl(data, slen, i + _MAX_KMER_SIZE, fwd, bwd)
         # compute forward hash
         hash_fwd = getHash(<char*> &fwd[i % _MAX_KMER_SIZE], kmer_size)
         hash_bwd = getHash(<char*> &bwd[2*_MAX_KMER_SIZE - i % _MAX_KMER_SIZE - kmer_size], kmer_size)
@@ -223,7 +202,6 @@ cdef int _add_minimizers_nucl(
 
 
 cdef ssize_t _read_prot(
-    const int kind,
     const void* data,
     const ssize_t slen,
     const ssize_t i,
@@ -240,18 +218,11 @@ cdef ssize_t _read_prot(
     else:
         length = 0
 
-    # if UCS-1, bytes are next to each other, so we can use the SIMD
-    # implementations to copy into uppercase
-    if kind == PyUnicode_1BYTE_KIND:
-        copy_upper(&fwd[_MAX_KMER_SIZE], &(<char*> data)[i], length)
-    else:
-        for j in range(length):
-            fwd[_MAX_KMER_SIZE + j] = toupper(<int> PyUnicode_READ(kind, data, i + j))
+    copy_upper(&fwd[_MAX_KMER_SIZE], &(<char*> data)[i], length)
 
 
 cdef int _add_minimizers_prot(
     vector[MinimizerInfo_t] &minimizer_index,
-    const int kind,
     const void* data,
     const ssize_t slen,
     const int kmer_size,
@@ -277,7 +248,7 @@ cdef int _add_minimizers_prot(
     # initial fill of the buffer for the sequence sliding window
     # supporting any unicode sequence in canonical form (including
     # byte buffers containing ASCII characters)
-    _read_prot(kind, data, slen, 0, fwd)
+    _read_prot(data, slen, 0, fwd)
 
     # process all windows of width `kmer_size` in the input sequence
     for i in range(slen - kmer_size + 1):
@@ -285,7 +256,7 @@ cdef int _add_minimizers_prot(
         # left, and read new block in right side
         if i % _MAX_KMER_SIZE == 0:
             memcpy(&fwd[0], &fwd[_MAX_KMER_SIZE], _MAX_KMER_SIZE)
-            _read_prot(kind, data, slen, i + _MAX_KMER_SIZE, fwd)
+            _read_prot(data, slen, i + _MAX_KMER_SIZE, fwd)
         # compute forward hash
         current_kmer = getHash(<char*> &fwd[i % _MAX_KMER_SIZE], kmer_size)
         n += 1
@@ -622,27 +593,21 @@ cdef class Sketch(_Parameterized):
 
         # variables to index the contig as text or bytes
         cdef const unsigned char[::1] view
-        cdef int                      kind
-        cdef void*                    data
-        cdef ssize_t                  slen
+        cdef const void*              data
+        cdef ssize_t                  slen = -1
 
         for contig in contigs:
 
             # get a way to read each letter of the contig,
             # independently of it being `str`, `bytes`, `bytearray`, etc.
             if isinstance(contig, str):
-                # get kind and data for efficient indexing
-                kind = PyUnicode_KIND(contig)
-                data = PyUnicode_DATA(contig)
-                slen = PyUnicode_GET_LENGTH(contig)
+                data = PyUnicode_AsUTF8AndSize(contig, &slen)
             else:
                 # attempt to view the contig as a buffer of contiguous bytes
                 view = contig
-                # pretend the the bytes are an ASCII (UCS-1) encoded string
-                kind = PyUnicode_1BYTE_KIND
                 slen = view.shape[0]
                 if slen != 0:
-                    data = <void*> &view[0]
+                    data = <const void*> &view[0]
 
             # check the sequence is large enough to compute minimizers
             if slen >= param.windowSize and slen >= param.kmerSize:
@@ -650,7 +615,6 @@ cdef class Sketch(_Parameterized):
                     if param.alphabetSize == 4:
                         _add_minimizers_nucl(
                             self._sk.minimizerIndex,
-                            kind,
                             data,
                             slen,
                             param.kmerSize,
@@ -660,7 +624,6 @@ cdef class Sketch(_Parameterized):
                     else:
                         _add_minimizers_prot(
                             self._sk.minimizerIndex,
-                            kind,
                             data,
                             slen,
                             param.kmerSize,
@@ -885,7 +848,6 @@ cdef class Mapper(_Parameterized):
     @staticmethod
     cdef int _do_l1_mappings(
         Map_t& map,
-        const int kind,
         const void* data,
         const ssize_t slen,
         QueryMetaData_t[kseq_ptr_t, vector[MinimizerInfo_t]]& query,
@@ -907,7 +869,6 @@ cdef class Mapper(_Parameterized):
         if map.param.alphabetSize == 4:
             _add_minimizers_nucl(
                query.minimizerTableQuery,
-               kind,
                data,
                slen,
                map.param.kmerSize,
@@ -917,7 +878,6 @@ cdef class Mapper(_Parameterized):
         else:
             _add_minimizers_prot(
                query.minimizerTableQuery,
-               kind,
                data,
                slen,
                map.param.kmerSize,
@@ -959,48 +919,51 @@ cdef class Mapper(_Parameterized):
         const int i,
         const seqno_t seq_counter,
         object mem,
-        int kind,
-        int stride,
         _FinalMappings final_mappings,
     ) except 1:
         cdef kseq_t                                         kseq
         cdef QueryMetaData_t[kseq_ptr_t, Map_t.MinVec_Type] query
         cdef vector[L1_candidateLocus_t]                    l1_mappings
-        cdef Py_buffer*                                     buffer
+        cdef Py_buffer                                      buffer
         cdef char*                                          data
         cdef char*                                          fragment
 
         if __debug__:
             if not PyMemoryView_Check(mem):
                 raise TypeError(f"expected memoryview, got {type(mem).__name__!r}")
-        buffer = PyMemoryView_GET_BUFFER(mem)
 
-        with nogil:
-            data = <char*> buffer.buf
-            fragment = &data[i*self._param.minReadLength*stride]
+        # Export the memoryview buffer with the Limited API
+        PyObject_GetBuffer(mem, &buffer, 0)
 
-            query.kseq = &kseq
-            query.kseq.seq.s = NULL
-            query.kseq.seq.l = self._param.minReadLength
-            query.seqCounter = seq_counter + i
+        try:
+            with nogil:
+                data = <char*> buffer.buf
+                fragment = &data[i*self._param.minReadLength]
 
-            Mapper._do_l1_mappings(
-                map._map[0],
-                # start of the i-th fragment
-                kind,
-                fragment,
-                self._param.minReadLength,
-                # outputs
-                query,
-                l1_mappings,
-            )
+                query.kseq = &kseq
+                query.kseq.seq.s = NULL
+                query.kseq.seq.l = self._param.minReadLength
+                query.seqCounter = seq_counter + i
 
-            map._map.doL2Mapping(
-                query,
-                l1_mappings,
-                final_mappings._vec
-            )
+                Mapper._do_l1_mappings(
+                    map._map[0],
+                    # start of the i-th fragment
+                    fragment,
+                    self._param.minReadLength,
+                    # outputs
+                    query,
+                    l1_mappings,
+                )
 
+                map._map.doL2Mapping(
+                    query,
+                    l1_mappings,
+                    final_mappings._vec
+                )
+        finally:
+            # Ensure the buffer is always released
+            PyBuffer_Release(&buffer)
+    
         return 0
 
     cdef list _query_draft(self, object contigs, int threads=0):
@@ -1023,10 +986,8 @@ cdef class Mapper(_Parameterized):
         cdef _FinalMappings                    final_mappings
         # sequence as a unicode object
         cdef const unsigned char[::1]          view
-        cdef int                               kind
-        cdef int                               stride
-        cdef void*                             data
-        cdef ssize_t                           slen
+        cdef const void*                       data
+        cdef ssize_t                           slen            = -1
         cdef object                            mem
         # parallel computation
         cdef object                            pool
@@ -1071,33 +1032,21 @@ cdef class Mapper(_Parameterized):
                 # get a way to read each letter of the contig,
                 # independently of it being `str`, `bytes`, `bytearray`, etc.
                 if isinstance(contig, str):
-                    # get kind and data for efficient indexing
-                    kind = PyUnicode_KIND(contig)
-                    data = PyUnicode_DATA(contig)
-                    slen = PyUnicode_GET_LENGTH(contig)
-                    if kind == PyUnicode_1BYTE_KIND:
-                        stride = sizeof(Py_UCS1)
-                    elif kind == PyUnicode_2BYTE_KIND:
-                        stride = sizeof(Py_UCS2)
-                    else:
-                        stride = sizeof(Py_UCS4)
+                    data = PyUnicode_AsUTF8AndSize(contig, &slen)
                 else:
                     # attempt to view the contig as a buffer of contiguous bytes
                     view = contig
-                    # pretend the bytes are an ASCII (UCS-1) encoded string
-                    kind = PyUnicode_1BYTE_KIND
                     slen = view.shape[0]
-                    stride = sizeof(Py_UCS1)
                     if slen != 0:
-                        data = <void*> &view[0]
+                        data = <const void*> &view[0]
                 # turn the void pointer into a Python object so it can
                 # be passed to another Python method
-                mem = PyMemoryView_FromMemory(<char*> data, slen*stride, PyBUF_READ)
+                mem = PyMemoryView_FromMemory(<char*> data, slen, PyBUF_READ)
                 # compute the expected number of blocks
                 fragment_count = slen // self._param.minReadLength
                 # map the blocks in parallel
                 pool.map(
-                    lambda i: self._query_fragment(map, i, total_fragments, mem, kind, stride, final_mappings),
+                    lambda i: self._query_fragment(map, i, total_fragments, mem, final_mappings),
                     range(fragment_count),
                 )
                 # record the number of fragments
@@ -1526,14 +1475,9 @@ cdef class MinimizerIndex:
             key = dereference(it).first
             value = dereference(it).second
 
-            i = 0
-            positions = PyList_New(value.size())
-
+            positions = [] 
             for pos_raw in value:
-                pos = Position.from_raw(pos_raw)
-                Py_INCREF(pos)
-                PyList_SET_ITEM(positions, i, pos)
-                i += 1
+                positions.append(Position.from_raw(pos_raw))
 
             yield key, positions
             preincrement(it)
