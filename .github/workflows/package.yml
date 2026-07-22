@@ -19,7 +19,7 @@ jobs:
       env:
         CIBW_ARCHS: aarch64
         CIBW_BUILD: '*-manylinux_aarch64'
-        CIBW_TEST_REQUIRES: importlib-resources biopython
+        CIBW_TEST_REQUIRES: importlib-resources
       with:
         output-dir: dist
     - uses: actions/upload-artifact@v4
@@ -39,7 +39,7 @@ jobs:
       env:
         CIBW_ARCHS: x86_64
         CIBW_BUILD: '*-manylinux_x86_64'
-        CIBW_TEST_REQUIRES: importlib-resources biopython
+        CIBW_TEST_REQUIRES: importlib-resources
       with:
         output-dir: dist
     - uses: actions/upload-artifact@v4
