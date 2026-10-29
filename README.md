@@ -19,6 +19,7 @@
 [![Changelog](https://img.shields.io/badge/keep%20a-changelog-8A0707.svg?maxAge=2678400&style=flat-square)](https://github.com/althonos/pyfastani/blob/master/CHANGELOG.md)
 [![Downloads](https://img.shields.io/pypi/dm/pyfastani?style=flat-square&color=303f9f&maxAge=86400&label=downloads)](https://pepy.tech/project/pyfastani)
 [![Paper](https://img.shields.io/badge/paper-nargab%2Flqaf095-darkblue?style=flat-square&maxAge=2678400)](https://academic.oup.com/nargab/article/7/3/lqaf095/8196481)
+[![Citations](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fbadge.dimensions.ai%2Fdetails%2Fid%2Fpub.1190680655&search=%3Cdiv%20class%3D%22count%22%3E(%5Cd*)%3C%2Fdiv%3E&replace=%241&style=flat-square&label=citations&cacheSeconds=3600)](https://badge.dimensions.ai/details/id/pub.1190680655)
 
 
 ## 🗺️ Overview

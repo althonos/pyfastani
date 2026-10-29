@@ -70,6 +70,9 @@ PyFastANI |Stars|
    :target: https://pepy.tech/project/pyfastani
    :class: dark-light
 
+.. |Citations| image:: https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fbadge.dimensions.ai%2Fdetails%2Fid%2Fpub.1190680655&search=%3Cdiv%20class%3D%22count%22%3E(%5Cd*)%3C%2Fdiv%3E&replace=%241&style=flat-square&label=citations&cacheSeconds=3600
+   :target: https://badge.dimensions.ai/details/id/pub.1190680655
+   :class: dark-light
 
 Overview
 --------
